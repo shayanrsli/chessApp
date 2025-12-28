@@ -1,0 +1,200 @@
+/* ========== استایل‌های Stockfish ========== */
+
+/* وضعیت کلی */
+.engine-status {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border: 2px solid #bae6fd;
+  border-radius: 12px;
+  padding: 1rem;
+  margin: 1rem 0;
+  animation: slideIn 0.3s ease;
+}
+
+.engine-status.initializing {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border-color: #fbbf24;
+}
+
+.engine-status.thinking {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  border-color: #60a5fa;
+}
+
+.engine-status.ready {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  border-color: #34d399;
+}
+
+/* محتوای وضعیت */
+.status-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+/* انیمیشن اسپینر */
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid #f59e0b;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* انیمیشن نقطه‌های فکر کردن */
+.thinking-animation {
+  display: flex;
+  gap: 4px;
+}
+
+.thinking-animation .dot {
+  width: 8px;
+  height: 8px;
+  background: #3b82f6;
+  border-radius: 50%;
+  animation: pulse 1.4s infinite both;
+}
+
+.thinking-animation .dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.thinking-animation .dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* متن‌ها */
+.thinking-text, .ready-text {
+  color: #1e293b;
+  font-weight: 500;
+}
+
+.thinking-details {
+  text-align: center;
+  margin-top: 0.5rem;
+}
+
+.details-text {
+  font-size: 0.85rem;
+  color: #64748b;
+  background: rgba(59, 130, 246, 0.1);
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  display: inline-block;
+}
+
+/* خطا */
+.engine-error {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  border: 2px solid #fca5a5;
+  border-radius: 12px;
+  padding: 1rem;
+  margin: 1rem 0;
+  animation: slideIn 0.3s ease;
+}
+
+.error-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.error-icon {
+  font-size: 1.5rem;
+  color: #dc2626;
+  flex-shrink: 0;
+}
+
+.error-details {
+  flex: 1;
+}
+
+.error-details strong {
+  display: block;
+  color: #dc2626;
+  margin-bottom: 0.25rem;
+}
+
+.error-details p {
+  margin: 0;
+  color: #7f1d1d;
+  font-size: 0.9rem;
+}
+
+.retry-btn {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.retry-btn:hover {
+  background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%);
+  transform: translateY(-2px);
+}
+
+.error-help {
+  background: rgba(220, 38, 38, 0.1);
+  border-radius: 8px;
+  padding: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.error-help p {
+  margin: 0 0 0.5rem 0;
+  color: #b91c1c;
+  font-weight: 500;
+}
+
+.error-help ul {
+  margin: 0;
+  padding-left: 1.5rem;
+  color: #7f1d1d;
+}
+
+.error-help li {
+  margin-bottom: 0.25rem;
+}
+
+/* انیمیشن‌ها */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.2;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* آیکون‌ها */
+.ready-icon {
+  font-size: 1.2rem;
+  color: #059669;
+}

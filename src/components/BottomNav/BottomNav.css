@@ -1,0 +1,28 @@
+/* BottomNav.css */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #1a1a1a;
+  backdrop-filter: blur(20px);
+  display: flex;
+  justify-content: space-around;
+  padding: 25px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  z-index: 1000;
+  width: 98%;
+}
+
+/* For desktop */
+@media (min-width: 768px) {
+  .bottom-nav {
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 20px 20px 0 0;
+    bottom: 0px;
+    margin: 0 auto;
+    width: 98%;
+
+  }
+}
