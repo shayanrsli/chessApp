@@ -10,10 +10,10 @@ export function Header({ title, subtitle, onBack }: HeaderProps) {
   return (
     <header className="header">
       <div className="header-top">
-        <button className="back-button" onClick={onBack}>
+        {/* <button className="back-button" onClick={onBack}>
           <span className="back-arrow">←</span>
           <span>Back</span>
-        </button>
+        </button> */}
       </div>
       <div className="header-content">
         <h1 className="header-title">{title}</h1>

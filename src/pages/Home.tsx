@@ -1,4 +1,3 @@
-import { useNavigate } from 'react-router-dom';
 import { BottomNav } from "../components/BottomNav/BottomNav";
 import { Header } from "../components/Header/Header";
 import { GameModeCard } from "../components/GameCard/GameModeCard";
@@ -8,65 +7,101 @@ import './Home.css';
 import "../components/GameCard/GameCard.css"
 import "../components/GameCard/GameModeCard.css"
 
-export function Home() {
-  const { username } = useTelegramUser();
-  const navigate = useNavigate();
+type AppView = 'home' | 'playWithFriend' | 'playWithBot';
 
-  const gameModes = [
+interface HomeProps {
+  onNavigate: (view: AppView) => void;
+}
+
+interface GameMode {
+  id: number;
+  icon: string;
+  title: string;
+  subtitle: string;
+  onClick: () => void;
+}
+
+interface ActiveGame {
+  id: number;
+  opponent: string;
+  status: string;
+  time: string;
+}
+
+interface NavItem {
+  id: number;
+  label: string;
+  icon: string;
+  onClick: () => void;
+}
+
+export function Home({ onNavigate }: HomeProps) {
+  const { username } = useTelegramUser();
+
+  const gameModes: GameMode[] = [
     {
       id: 1,
       icon: "👥",
-      title: "Play with friend",
-      subtitle: "Challenge someone you know",
-      onClick: () => navigate('/play-with-friend')
+      title: "بازی با دوست",
+      subtitle: "با یک دوست بازی کنید",
+      onClick: () => {
+        // فعلاً هیچ‌جا نرود - پیام نمایش بده
+        alert("بخش بازی با دوست در حال توسعه است! به زودی اضافه خواهد شد.");
+      }
     },
     {
       id: 2,
       icon: "🤖",
-      title: "Play with Bot",
-      subtitle: "Challenge AI opponent",
-      onClick: () => navigate('/play-with-bot')
+      title: "بازی با ربات",
+      subtitle: "حریف هوش مصنوعی",
+      onClick: () => onNavigate('playWithBot')
     }
   ];
 
-  const activeGames = [
-    { id: 1, opponent: "John", status: "Your turn", time: "2m ago" },
-    { id: 2, opponent: "Bot (Medium)", status: "Bot thinking...", time: "5m ago" },
-    { id: 3, opponent: "Alice", status: "Waiting...", time: "10m ago" }
+  const activeGames: ActiveGame[] = [
+    { id: 1, opponent: "جان", status: "نوبت شما", time: "۲ دقیقه پیش" },
+    { id: 2, opponent: "ربات (متوسط)", status: "ربات در حال فکر...", time: "۵ دقیقه پیش" },
+    { id: 3, opponent: "آلیس", status: "در انتظار...", time: "۱۰ دقیقه پیش" }
   ];
 
-  const navItems = [
+  const navItems: NavItem[] = [
     {
       id: 1,
-      label: "Home",
+      label: "خانه",
       icon: "🏠",
-      onClick: () => navigate('/')
+      onClick: () => onNavigate('home')
     },
     {
       id: 2,
-      label: "Games",
+      label: "بازی‌ها",
       icon: "♟️",
-      onClick: () => console.log("Games")
+      onClick: () => {
+        // رفتن به صفحه بازی‌ها یا نمایش پیام
+        alert("صفحه بازی‌ها به زودی اضافه خواهد شد!");
+      }
     },
     { 
       id: 3,
-      label: "Profile",
+      label: "پروفایل",
       icon: "👤",
-      onClick: () => console.log("Profile")
+      onClick: () => {
+        // رفتن به صفحه پروفایل یا نمایش پیام
+        alert("صفحه پروفایل به زودی اضافه خواهد شد!");
+      }
     }
   ];
 
   return (
-    <div className="home">
+    <div className="home" dir="rtl">
       <Header 
-        title="Start New Game"
-        subtitle="Choose your mode"
+        title="شروع بازی جدید"
+        subtitle="حالت بازی را انتخاب کنید"
         onBack={() => window.history.back()}
       />
 
       <main className="home-content">
         <section className="game-modes-section">
-          <h2 className="section-title">Game Modes</h2>
+          <h2 className="section-title">حالت‌های بازی</h2>
           <div className="game-modes-grid">
             {gameModes.map(mode => (
               <GameModeCard key={mode.id} {...mode} />
@@ -77,7 +112,7 @@ export function Home() {
         <div className="divider"></div>
 
         <section className="active-games-section">
-          <h2 className="section-title">Active Games</h2>
+          <h2 className="section-title">بازی‌های فعال</h2>
           <div className="active-games-list">
             {activeGames.map(game => (
               <ActiveGameCard key={game.id} {...game} />

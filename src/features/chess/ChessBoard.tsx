@@ -1,502 +1,322 @@
-
-
-// ChessBoard.tsx - نسخه کامل و تصحیح شده
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Chess, Move, type Square } from "chess.js";
+// ChessBoard.tsx - کاملاً بهینه شده
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Chess, type Square } from "chess.js";
 import { Chessground as CG } from "chessground";
 import type { Api, Key } from "chessground/api";
-import type { Config } from "chessground/config";
 import "chessground/assets/chessground.base.css";
 import "chessground/assets/chessground.brown.css";
 import "chessground/assets/chessground.cburnett.css";
 import "./ChessBoard.css";
-import { StockfishEngine } from "../../components/StockfishEngine/StockfishEngine"
 
-
-// ========== تعریف ثابت‌ها در ابتدای فایل ==========
-const ICONS = {
-  queen: "👑",
-  rook: "🏰",
-  bishop: "♝",
-  knight: "♞",
-  undo: "↩️",
-  flip: "🔄",
-  reset: "🆕",
-  analyze: "📝",
-  edit: "✏️",
-  white: "⚪",
-  black: "⚫",
-  clock: "⏱️",
-  increment: "➕",
-  time: "⏰",
-  surrender: "🏳️",
-  checkmate: "♟️",
-  stalemate: "🤝",
-  victory: "🎉",
-  draw: "🤝",
-  ai: "🤖",
-  human: "👤",
-  easy: "😊",
-  medium: "😐",
-  hard: "😈",
-  vsHuman: "👥",
-  vsAI: "🤖"
-};
-
-const TIME_CONTROLS = {
-  "blitz_5|0": { name: "بلیتز 5+0", time: 300, increment: 0 },
-  "rapid_10|0": { name: "رپید 10+0", time: 600, increment: 0 },
-  "rapid_15|10": { name: "رپید 15+10", time: 900, increment: 10 },
-};
-
-const DIFFICULTY_LEVELS = [
-  { value: 1, label: "😊 بسیار آسان (سطح 1)", color: "#22c55e" },
-  { value: 3, label: "🙂 آسان (سطح 3)", color: "#4ade80" },
-  { value: 5, label: "😐 متوسط رو به پایین (سطح 5)", color: "#eab308" },
-  { value: 8, label: "🧐 متوسط (سطح 8)", color: "#f59e0b" },
-  { value: 12, label: "😠 سخت (سطح 12)", color: "#f97316" },
-  { value: 16, label: "😈 بسیار سخت (سطح 16)", color: "#ef4444" },
-  { value: 20, label: "🔥 استاد (سطح 20)", color: "#dc2626" }
+// ========== تعریف ثابت‌ها ==========
+const TIME_CONTROLS = [
+  { id: "blitz_5|0", name: "بلیتز 5+0", time: 5 * 60, increment: 0 },
+  { id: "rapid_10|0", name: "رپید 10+0", time: 10 * 60, increment: 0 },
+  { id: "rapid_15|10", name: "رپید 15+10", time: 15 * 60, increment: 10 },
 ];
 
-export function ChessBoard() {
+const DIFFICULTY_LEVELS = [
+  { value: 1, label: "😊 مبتدی", thinkTime: 500 },
+  { value: 3, label: "🙂 آسان", thinkTime: 800 },
+  { value: 5, label: "😐 متوسط", thinkTime: 1200 },
+  { value: 8, label: "🧐 پیشرفته", thinkTime: 1500 },
+  { value: 12, label: "😠 حرفه‌ای", thinkTime: 2000 },
+  { value: 16, label: "😈 نخبه", thinkTime: 2500 },
+  { value: 20, label: "🔥 استاد", thinkTime: 3000 }
+];
+
+type GameStage = 'color_selection' | 'time_control' | 'difficulty' | 'game';
+
+// ========== الگوریتم AI ساده و سریع ==========
+const getSimpleAiMove = (game: Chess, difficulty: number): string | null => {
+  const moves = game.moves();
+  if (moves.length === 0) return null;
+  
+  // ارزیابی ساده مهره‌ها
+  const pieceValues = { 'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 100 };
+  
+  let bestMove = moves[0];
+  let bestScore = -Infinity;
+  
+  // برای سطوح پایین: حرکت تصادفی
+  if (difficulty <= 3) {
+    return moves[Math.floor(Math.random() * moves.length)];
+  }
+  
+  // برای سطوح متوسط: ارزیابی ساده
+  for (const move of moves) {
+    const gameCopy = new Chess(game.fen());
+    const moveResult = gameCopy.move(move);
+    if (!moveResult) continue;
+    
+    let score = 0;
+    
+    // 1. ارزش مهره‌ها
+    const board = gameCopy.board();
+    for (let row = 0; row < 8; row++) {
+      for (let col = 0; col < 8; col++) {
+        const piece = board[row][col];
+        if (piece) {
+          const value = pieceValues[piece.type];
+          score += piece.color === 'w' ? value : -value;
+        }
+      }
+    }
+    
+    // 2. پاداش کیش
+    if (gameCopy.inCheck()) {
+      score += gameCopy.turn() === 'w' ? -10 : 10;
+    }
+    
+    // 3. پاداش حرکت مهره‌های بزرگ (برای سطوح بالا)
+    if (difficulty >= 12) {
+      if (move.includes('Q')) score += 5;
+      if (move.includes('R')) score += 3;
+      if (move.includes('B') || move.includes('N')) score += 2;
+    }
+    
+    // 4. پاداش حمله (برای سطوح بالا)
+    if (difficulty >= 8 && move.includes('x')) {
+      const captured = move.split('x')[1];
+      if (captured && captured.length >= 2) {
+        const piece = gameCopy.get(captured as Square);
+        if (piece) {
+          score += pieceValues[piece.type] * 2;
+        }
+      }
+    }
+    
+    if (score > bestScore) {
+      bestScore = score;
+      bestMove = move;
+    }
+  }
+  
+  return bestMove;
+};
+
+// ========== کامپوننت اصلی ==========
+export function ChessBoard({ mode = 'bot', onBack }: ChessBoardProps) {
   // ========== Refs ==========
   const boardRef = useRef<HTMLDivElement>(null);
   const cgRef = useRef<Api | null>(null);
-  const timerRef = useRef<number | null>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const gameRef = useRef<Chess | null>(null);
+  const aiTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // ========== State اصلی ==========
-  const [game] = useState(() => new Chess());
-  const [fen, setFen] = useState(game.fen());
-  const [lastMove, setLastMove] = useState<[Square, Square] | null>(null);
-  const [orientation, setOrientation] = useState<"white" | "black">("white");
-  const [moveHistory, setMoveHistory] = useState<Move[]>([]);
+  // ========== State ==========
+  const [gameStage, setGameStage] = useState<GameStage>('color_selection');
+  const [playerColor, setPlayerColor] = useState<'white' | 'black'>('white');
+  const [selectedTimeControl, setSelectedTimeControl] = useState(TIME_CONTROLS[0]);
+  const [difficulty, setDifficulty] = useState(8);
+  const [fen, setFen] = useState('start');
+  const [orientation, setOrientation] = useState<'white' | 'black'>('white');
   
-  // State‌های قبلی
-  const [promotion, setPromotion] = useState({ 
-    pending: false, 
-    from: null as Square | null, 
-    to: null as Square | null 
-  });
-  const [drawMode, setDrawMode] = useState(false);
-  const [isBoardEditor, setIsBoardEditor] = useState(false);
-  const [premoveEnabled, setPremoveEnabled] = useState(true);
-  const [message, setMessage] = useState("");
-  const [selectedMoveIndex, setSelectedMoveIndex] = useState<number | null>(null);
+  // تایمرها
+  const [whiteTime, setWhiteTime] = useState(0);
+  const [blackTime, setBlackTime] = useState(0);
+  const [activeTimer, setActiveTimer] = useState<'white' | 'black' | null>(null);
   
-  // ========== تایمرها ==========
-  const [whiteTime, setWhiteTime] = useState(TIME_CONTROLS["blitz_5|0"].time);
-  const [blackTime, setBlackTime] = useState(TIME_CONTROLS["blitz_5|0"].time);
-  const [increment, setIncrement] = useState(TIME_CONTROLS["blitz_5|0"].increment);
-  const [activeTimer, setActiveTimer] = useState<"white" | "black" | null>("white");
+  // وضعیت بازی
   const [gameStarted, setGameStarted] = useState(false);
   const [gameOver, setGameOver] = useState(false);
-  const [winner, setWinner] = useState<"white" | "black" | "draw" | null>(null);
-  const [selectedTimeControl, setSelectedTimeControl] = useState<keyof typeof TIME_CONTROLS>("blitz_5|0");
-  
-  // ========== State‌های جدید برای Stockfish ==========
-  const [gameMode, setGameMode] = useState<'pvp' | 'vsAI'>('pvp');
-  const [difficulty, setDifficulty] = useState(8);
-  const [aiColor, setAiColor] = useState<'white' | 'black'>('black');
-  const [isEngineThinking, setIsEngineThinking] = useState(false);
-  const [engineMessage, setEngineMessage] = useState('');
+  const [winner, setWinner] = useState<'white' | 'black' | 'draw' | null>(null);
+  const [message, setMessage] = useState("");
+  const [isAiThinking, setIsAiThinking] = useState(false);
+  const [moveCount, setMoveCount] = useState(0);
+
+  // ========== Initialize Game ==========
+  useEffect(() => {
+    if (!gameRef.current) {
+      gameRef.current = new Chess();
+      setFen(gameRef.current.fen());
+    }
+  }, []);
 
   // ========== توابع کمکی ==========
-  // نمایش پیام موقت
-  const showMessage = useCallback((text: string, duration: number = 3500) => {
+  const showMessage = useCallback((text: string, duration: number = 3000) => {
     setMessage(text);
     setTimeout(() => setMessage(""), duration);
   }, []);
 
-  // محاسبه حرکات قانونی
-  const calculateDests = useCallback((): Map<Square, Square[]> => {
-    const dests = new Map<Square, Square[]>();
-    
-    if (isBoardEditor || gameOver) {
-      return dests;
-    }
-
-    const turn = game.turn();
-    const board = game.board();
-    
-    board.forEach((row, rowIndex) => {
-      if (!row) return;
-      
-      row.forEach((piece, colIndex) => {
-        if (piece && piece.color === turn) {
-          const square = `${String.fromCharCode(97 + colIndex)}${8 - rowIndex}` as Square;
-          try {
-            const moves = game.moves({ 
-              square, 
-              verbose: true 
-            });
-            
-            if (moves.length > 0) {
-              const destSquares = moves.map(m => 
-                m.to as Square
-              ).filter((dest, index, self) => 
-                self.indexOf(dest) === index
-              );
-              
-              dests.set(square, destSquares);
-            }
-          } catch (error) {
-            // خطا را نادیده بگیر
-          }
-        }
-      });
-    });
-    
-    return dests;
-  }, [game, isBoardEditor, gameOver]);
-
-  // تبدیل حرکات به فرمت Chessground
-  const convertDestsForChessground = useCallback((dests: Map<Square, Square[]>): Map<Key, Key[]> => {
-    const newMap = new Map<Key, Key[]>();
-    dests.forEach((destinations, source) => {
-      newMap.set(source as Key, destinations as Key[]);
-    });
-    return newMap;
-  }, []);
-
-  // تغییر نوبت تایمر (حرفه‌ای)
-  const switchTimer = useCallback((previousPlayer: "white" | "black") => {
-    // به بازیکنی که حرکت کرده، increment اضافه کن
-    if (increment > 0) {
-      if (previousPlayer === "white") {
-        setWhiteTime(prev => Math.floor(prev + increment));
-      } else {
-        setBlackTime(prev => Math.floor(prev + increment));
-      }
-    }
-    
-    // تایمر رو به بازیکن مقابل بده
-    setActiveTimer(previousPlayer === "white" ? "black" : "white");
-  }, [increment]);
-
-  // فرمت زمان (با اعشار برای نمایش دقیق)
   const formatTime = useCallback((seconds: number) => {
     const totalSeconds = Math.floor(seconds);
     const mins = Math.floor(totalSeconds / 60);
     const secs = totalSeconds % 60;
-    const tenths = Math.floor((seconds % 1) * 10);
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  }, []);
+
+  const calculateDests = useCallback(() => {
+    if (!gameRef.current || gameOver) return new Map<Key, Key[]>();
     
-    if (mins > 0) {
-      return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-    } else {
-      return `${secs}.${tenths}`;
+    const game = gameRef.current;
+    const dests = new Map<Key, Key[]>();
+    const turn = game.turn();
+    const board = game.board();
+    
+    for (let row = 0; row < 8; row++) {
+      for (let col = 0; col < 8; col++) {
+        const piece = board[row][col];
+        if (piece && piece.color === turn) {
+          const square = `${String.fromCharCode(97 + col)}${8 - row}` as Key;
+          try {
+            const moves = game.moves({ square: square as Square, verbose: true });
+            if (moves.length > 0) {
+              const destSquares = moves.map(m => m.to as Key)
+                .filter((dest, index, self) => self.indexOf(dest) === index);
+              dests.set(square, destSquares);
+            }
+          } catch {
+            // ignore
+          }
+        }
+      }
     }
-  }, []);
+    
+    return dests;
+  }, [gameOver]);
 
-  // اتمام زمان
-  const handleTimeout = useCallback((player: "white" | "black") => {
-    handleGameEnd('timeout', player === "white" ? "black" : "white");
-  }, []);
+  const switchTimer = useCallback((previousPlayer: "white" | "black") => {
+    if (selectedTimeControl.increment > 0) {
+      if (previousPlayer === "white") {
+        setWhiteTime(prev => Math.floor(prev + selectedTimeControl.increment));
+      } else {
+        setBlackTime(prev => Math.floor(prev + selectedTimeControl.increment));
+      }
+    }
+    setActiveTimer(previousPlayer === "white" ? "black" : "white");
+  }, [selectedTimeControl]);
 
-  // ========== مدیریت پایان بازی ==========
   const handleGameEnd = useCallback((resultType: 'checkmate' | 'stalemate' | 'draw' | 'surrender' | 'timeout', winner?: 'white' | 'black') => {
     setGameOver(true);
     setActiveTimer(null);
     
-    let message = "";
-    
     switch (resultType) {
       case 'checkmate':
-        const winnerSide = winner === 'white' ? 'سفید' : 'سیاه';
-        const loserSide = winner === 'white' ? 'سیاه' : 'سفید';
-        setWinner(winner ?? null);
-
-        message = `${ICONS.victory} کیش و مات! ${winnerSide} برنده شد!\n\n`;
-        message += `🧠 ${loserSide} مات شد و هیچ راه فراری نداشت!\n`;
-        message += `👑 تبریک به ${winnerSide}! بازی استثنایی بود!`;
+        setWinner(winner || null);
+        showMessage(`🎉 ${winner === 'white' ? 'سفید' : 'سیاه'} برنده شد!`, 5000);
         break;
-        
-      case 'stalemate':
-        setWinner('draw');
-        const stalemateSide = game.turn() === 'w' ? 'سفید' : 'سیاه';
-        message = `${ICONS.stalemate} پات! بازی مساوی شد!\n\n`;
-        message += `🏆 ${stalemateSide} هیچ حرکت قانونی ندارد اما کیش نیست!\n`;
-        message += `⚖️ نتیجه: تساوی فنی - مهارت‌های دفاعی عالی!`;
+      case 'timeout':
+        setWinner(winner || null);
+        showMessage(`⏱️ زمان ${winner === 'white' ? 'سیاه' : 'سفید'} به پایان رسید!`, 5000);
         break;
-        
       case 'draw':
         setWinner('draw');
-        message = `${ICONS.draw} بازی به تساوی پایان یافت!\n\n`;
-        message += `📊 دلایل ممکن:\n`;
-        message += `• تکرار سه‌باره موقعیت\n`;
-        message += `• 50 حرکت بدون پیشرفت\n`;
-        message += `• مواد کافی برای کیش و مات نبود\n`;
-        message += `• توافق دوطرفه`;
+        showMessage("🤝 بازی مساوی شد!", 5000);
         break;
-        
       case 'surrender':
-        const surrendered = winner === 'white' ? 'سیاه' : 'سفید';
-        const winnerSideSurrender = winner === 'white' ? 'سفید' : 'سیاه';
-        setWinner(winner ?? null);
-
-        message = `${ICONS.surrender} ${surrendered} تسلیم شد!\n\n`;
-        message += `🎖️ ${winnerSideSurrender} پیروز میدان شد!\n`;
-        message += `🙌 شجاعت خودت رو در بازی بعدی نشان بده!\n`;
-        message += `💪 هر شکست پلی‌ست برای پیروزی‌های آینده!`;
-        break;
-        
-      case 'timeout':
-        const timeoutWinner = winner === 'white' ? 'سفید' : 'سیاه';
-        const timeoutLoser = winner === 'white' ? 'سیاه' : 'سفید';
-        setWinner(winner ?? null);
-
-        message = `${ICONS.clock} زمان ${timeoutLoser} به پایان رسید!\n\n`;
-        message += `⚡ ${timeoutWinner} با اتمام زمان حریف برنده شد!\n`;
-        message += `⏱️ مدیریت زمان کلید موفقیت در شطرنج است!\n`;
-        message += `📈 در بازی بعدی زمان‌ت رو بهتر مدیریت کن!`;
+        setWinner(winner || null);
+        showMessage(`🏳️ ${winner === 'white' ? 'سیاه' : 'سفید'} تسلیم شد!`, 5000);
         break;
     }
-    
-    showMessage(message, 5000);
-    
-    // لرزش تخته برای اتمام بازی
-    if (boardRef.current) {
-      boardRef.current.classList.add('game-end-shake');
-      setTimeout(() => {
-        boardRef.current?.classList.remove('game-end-shake');
-      }, 500);
-    }
-  }, [game, showMessage]);
+  }, [showMessage]);
 
-  // ========== تابع شروع بازی ==========
-  const startGame = useCallback(() => {
-    const control = TIME_CONTROLS[selectedTimeControl];
-    setWhiteTime(control.time);
-    setBlackTime(control.time);
-    setIncrement(control.increment);
-    setGameStarted(true);
-    setGameOver(false);
-    setWinner(null);
-    
-    // تنظیم تایمر فعال
-    if (gameMode === 'vsAI' && aiColor === 'black') {
-      // اگر AI سیاه است، سفید شروع می‌کند
-      setActiveTimer("white");
-      showMessage(`🎮 بازی ${control.name} شروع شد!\n⚪ شما (سفید) حرکت می‌کنید\n🤖 AI در سطح ${difficulty}`);
-    } else if (gameMode === 'vsAI' && aiColor === 'white') {
-      // اگر AI سفید است، AI شروع می‌کند
-      setActiveTimer(null); // تایمر غیرفعال تا AI حرکت کند
-      showMessage(`🎮 بازی ${control.name} شروع شد!\n🤖 AI (سفید) در حال حرکت...`);
-      
-      // AI حرکت اول را انجام می‌دهد
-      setTimeout(() => {
-        setEngineMessage('🤖 AI در حال فکر کردن برای حرکت اول...');
-        setIsEngineThinking(true);
-      }, 1000);
-    } else {
-      // حالت PvP
-      setActiveTimer("white");
-      showMessage(`🎮 بازی ${control.name} شروع شد!\n⚪ سفید حرکت می‌کند`);
-    }
-  }, [selectedTimeControl, gameMode, aiColor, difficulty, showMessage]);
-
-  // ========== تابع تسلیم ==========
-  const handleSurrender = useCallback(() => {
-    if (!gameStarted || gameOver) {
-      showMessage("❌ بازی در حال انجام نیست!");
-      return;
-    }
-    
-    // تایید تسلیم
-    if (!window.confirm("آیا مطمئن هستید که می‌خواهید تسلیم شوید؟")) {
-      return;
-    }
-    
-    const surrenderingPlayer = game.turn() === 'w' ? 'white' : 'black';
-    const winner = surrenderingPlayer === 'white' ? 'black' : 'white';
-    
-    handleGameEnd('surrender', winner);
-  }, [game, gameStarted, gameOver, handleGameEnd, showMessage]);
-
-  // ========== پیشنهاد تساوی ==========
-  const handleDrawOffer = useCallback(() => {
-    if (!gameStarted || gameOver) {
-      showMessage("❌ بازی در حال انجام نیست!");
-      return;
-    }
-    
-    const offeringPlayer = game.turn() === 'w' ? 'سفید' : 'سیاه';
-    showMessage(`⚖️ ${offeringPlayer} پیشنهاد تساوی داد!\n\nاگر حریف موافق باشد، بازی مساوی می‌شود.`);
-    
-    // در نسخه تک‌نفره فعلاً خودکار قبول می‌شود
-    setTimeout(() => {
-      handleGameEnd('draw');
-    }, 2000);
-  }, [game, gameStarted, gameOver, handleGameEnd, showMessage]);
-
-  // ========== تابع جدید برای مدیریت حرکت AI ==========
-  const handleAiMove = useCallback((moveStr: string) => {
-    if (gameOver || !gameStarted) return;
+  // ========== حرکت AI سریع و غیر-بلاکینگ ==========
+  const handleAiMove = useCallback(() => {
+    if (!gameRef.current || gameOver || !gameStarted || !isAiThinking) return;
     
     try {
-      // تبدیل حرکت از فرمت "e2e4" به پارامترهای جدا
-      const from = moveStr.substring(0, 2) as Square;
-      const to = moveStr.substring(2, 4) as Square;
+      const game = gameRef.current;
       
-      // بررسی نیاز به ارتقاء
-      const piece = game.get(from);
-      let promotionPiece: 'queen' | 'rook' | 'bishop' | 'knight' | undefined;
+      // سریع و بدون بلاک کردن UI
+      const bestMove = getSimpleAiMove(game, difficulty);
       
-      if (piece && piece.type === 'p') {
-        const isWhite = piece.color === 'w';
-        const promotionRank = isWhite ? 8 : 1;
-        const toRank = parseInt(to[1]);
-        
-        if (toRank === promotionRank) {
-          // AI همیشه وزیر را انتخاب می‌کند
-          promotionPiece = 'queen';
-        }
+      if (!bestMove) {
+        setIsAiThinking(false);
+        return;
       }
-      
-      // انجام حرکت
-      const move = game.move({
-        from,
-        to,
-        promotion: promotionPiece === 'queen' ? 'q' : 
-                  promotionPiece === 'rook' ? 'r' : 
-                  promotionPiece === 'bishop' ? 'b' : 
-                  promotionPiece === 'knight' ? 'n' : undefined
-      });
-      
-      if (move) {
-        // تغییر نوبت تایمر
-        const previousPlayer = game.turn() === 'w' ? 'black' : 'white';
-        if (gameMode === 'pvp') {
-          switchTimer(previousPlayer);
-        }
-        
-        // به‌روزرسانی state
-        setFen(game.fen());
-        setLastMove([move.from as Square, move.to as Square]);
-        setMoveHistory([...game.history({ verbose: true })]);
-        setSelectedMoveIndex(null);
-        
-        // نمایش پیام
-        const moveNumber = Math.ceil(moveHistory.length / 2) + 1;
-        const player = gameMode === 'vsAI' && move.color === aiColor[0] ? '🤖 AI' : move.color === 'w' ? '⚪ سفید' : '⚫ سیاه';
-        showMessage(`${player} حرکت کرد: ${move.san} (حرکت ${moveNumber})`);
-        
-        // بررسی پایان بازی
-        if (game.isGameOver()) {
-          if (game.isCheckmate()) {
-            const winner = game.turn() === 'w' ? 'black' : 'white';
-            handleGameEnd('checkmate', winner);
-          } else if (game.isStalemate()) {
-            handleGameEnd('stalemate');
-          } else if (game.isDraw()) {
-            handleGameEnd('draw');
-          }
-          return;
-        }
-        
-        // به‌روزرسانی Chessground
-        if (cgRef.current) {
-          const dests = calculateDests();
-          const convertedDests = convertDestsForChessground(dests);
-          
-          cgRef.current.set({
-            fen: game.fen(),
-            turnColor: game.turn() === 'w' ? 'white' : 'black',
-            check: game.inCheck(),
-            lastMove: [move.from as Key, move.to as Key],
-            movable: {
-              free: isBoardEditor,
-              color: isBoardEditor ? 'both' : (game.turn() === 'w' ? 'white' : 'black'),
-              dests: convertedDests,
-              showDests: !isBoardEditor,
-            }
-          });
-        }
-      }
-      
-      setIsEngineThinking(false);
-      setEngineMessage('');
-      
-    } catch (error) {
-      console.error('❌ AI move error:', error);
-      setIsEngineThinking(false);
-      setEngineMessage('خطا در حرکت AI');
-    }
-  }, [game, gameOver, gameStarted, gameMode, aiColor, moveHistory, calculateDests, convertDestsForChessground, isBoardEditor, showMessage, switchTimer, handleGameEnd]);
 
-  // ========== تابع اصلی انجام حرکت ==========
-  const handleMove = useCallback((from: Square, to: Square, promotionPiece?: 'queen' | 'rook' | 'bishop' | 'knight') => {
-    if (gameOver) {
+      const move = game.move(bestMove);
+      if (!move) {
+        setIsAiThinking(false);
+        return;
+      }
+
+      // به‌روزرسانی FEN
+      setFen(game.fen());
+      setMoveCount(prev => prev + 1);
+      
+      // تغییر تایمر
+      const previousPlayer = 'white';
+      switchTimer(previousPlayer);
+
+      // بررسی پایان بازی
+      if (game.isGameOver()) {
+        if (game.isCheckmate()) {
+          const winner = game.turn() === 'w' ? 'black' : 'white';
+          handleGameEnd('checkmate', winner);
+        } else if (game.isStalemate()) {
+          handleGameEnd('stalemate');
+        } else if (game.isDraw()) {
+          handleGameEnd('draw');
+        }
+        setIsAiThinking(false);
+        return;
+      }
+
+      // به‌روزرسانی Chessground
+      if (cgRef.current) {
+        const dests = calculateDests();
+        
+        cgRef.current.set({
+          fen: game.fen(),
+          turnColor: game.turn() === 'w' ? 'white' : 'black',
+          check: game.inCheck(),
+          lastMove: [move.from as Key, move.to as Key],
+          movable: {
+            free: false,
+            color: game.turn() === 'w' ? 'white' : 'black',
+            dests,
+            showDests: true,
+          }
+        });
+      }
+
+      showMessage(`🤖 AI (سطح ${difficulty}) حرکت کرد: ${move.san}`);
+      setIsAiThinking(false);
+
+    } catch (error) {
+      console.error('AI move error:', error);
+      setIsAiThinking(false);
+    }
+  }, [gameOver, gameStarted, isAiThinking, difficulty, calculateDests, switchTimer, handleGameEnd, showMessage]);
+
+  // ========== حرکت کاربر ==========
+  const handleUserMove = useCallback((from: Key, to: Key) => {
+    if (!gameRef.current || gameOver) {
       showMessage("❌ بازی پایان یافته!");
       return false;
     }
-    
-    if (!gameStarted) {
-      startGame();
-    }
 
-    // بررسی اینکه آیا نوبت کاربر است (در حالت vsAI)
-    if (gameMode === 'vsAI') {
-      const currentPlayerColor = game.turn() === 'w' ? 'white' : 'black';
-      if (currentPlayerColor === aiColor) {
-        showMessage("❌ نوبت شما نیست! نوبت AI است.");
+    const game = gameRef.current;
+    
+    // بررسی نوبت کاربر
+    if (mode === 'bot') {
+      const userTurn = playerColor === 'white' ? game.turn() === 'w' : game.turn() === 'b';
+      if (!userTurn) {
+        showMessage("❌ نوبت AI است!");
         return false;
       }
     }
 
-    // بررسی نیاز به ارتقاء
-    const piece = game.get(from);
-    if (piece && piece.type === 'p') {
-      const isWhite = piece.color === 'w';
-      const promotionRank = isWhite ? 8 : 1;
-      const toRank = parseInt(to[1]);
-      
-      if (toRank === promotionRank) {
-        setPromotion({
-          pending: true,
-          from,
-          to
-        });
-        showMessage("📈 سرباز به رتبه آخر رسید! نوع ارتقاء را انتخاب کنید");
-        return false;
-      }
-    }
-    
-    // تبدیل نوع مهره ارتقاء
-    const promotionMap = {
-      'queen': 'q',
-      'rook': 'r',
-      'bishop': 'b',
-      'knight': 'n'
-    };
-    
-    // انجام حرکت
     const move = game.move({ 
-      from, 
-      to, 
-      promotion: promotionPiece ? promotionMap[promotionPiece] : 'q' 
+      from: from as Square, 
+      to: to as Square 
     });
     
     if (!move) {
       showMessage("❌ حرکت غیرمجاز است!");
       return false;
     }
-    
-    // تغییر نوبت تایمر (فقط در حالت PvP)
-    if (gameMode === 'pvp') {
-      const previousPlayer = game.turn() === 'w' ? 'black' : 'white';
-      switchTimer(previousPlayer);
-    }
-    
-    // به‌روزرسانی state
+
+    // به‌روزرسانی FEN
     setFen(game.fen());
-    setLastMove([move.from as Square, move.to as Square]);
-    setMoveHistory([...game.history({ verbose: true })]);
-    setSelectedMoveIndex(null);
+    setMoveCount(prev => prev + 1);
     
-    // نمایش پیام موفقیت
-    showMessage(`✅ حرکت انجام شد: ${move.san}`);
-    
+    // تغییر تایمر
+    const previousPlayer = game.turn() === 'w' ? 'black' : 'white';
+    switchTimer(previousPlayer);
+
     // بررسی پایان بازی
     if (game.isGameOver()) {
       if (game.isCheckmate()) {
@@ -509,201 +329,149 @@ export function ChessBoard() {
       }
       return true;
     }
-    
+
     // به‌روزرسانی Chessground
     if (cgRef.current) {
       const dests = calculateDests();
-      const convertedDests = convertDestsForChessground(dests);
       
       cgRef.current.set({
         fen: game.fen(),
         turnColor: game.turn() === 'w' ? 'white' : 'black',
         check: game.inCheck(),
-        lastMove: [move.from as Key, move.to as Key],
+        lastMove: [from, to],
         movable: {
-          free: isBoardEditor,
-          color: isBoardEditor ? 'both' : (game.turn() === 'w' ? 'white' : 'black'),
-          dests: convertedDests,
-          showDests: !isBoardEditor,
+          free: false,
+          color: game.turn() === 'w' ? 'white' : 'black',
+          dests,
+          showDests: true,
         }
       });
-      
-      cgRef.current.cancelPremove();
     }
-    
+
+    // اگر نوبت AI است، AI را فعال کن
+    if (mode === 'bot') {
+      const aiTurn = playerColor === 'white' ? game.turn() === 'b' : game.turn() === 'w';
+      if (aiTurn) {
+        setTimeout(() => setIsAiThinking(true), 100);
+      }
+    }
+
+    showMessage(`✅ حرکت انجام شد: ${move.san}`);
     return true;
-  }, [game, gameOver, gameStarted, gameMode, aiColor, startGame, calculateDests, convertDestsForChessground, isBoardEditor, showMessage, switchTimer, handleGameEnd]);
+  }, [gameOver, mode, playerColor, calculateDests, switchTimer, handleGameEnd, showMessage]);
 
-  // ========== هندلر حرکت از Chessground ==========
-  const handleMoveCG = useCallback((orig: Key, dest: Key) => {
-    if (promotion.pending) {
-      showMessage("⚠️ ابتدا نوع ارتقاء را انتخاب کنید");
-      return;
-    }
-    
-    handleMove(orig as Square, dest as Square);
-  }, [handleMove, promotion.pending, showMessage]);
+  // ========== شروع بازی ==========
+  const startGame = useCallback(() => {
+    if (!gameRef.current) return;
 
-  // ========== مدیریت انتخاب ارتقاء ==========
-  const handlePromotionChoice = useCallback((piece: 'queen' | 'rook' | 'bishop' | 'knight') => {
-    if (!promotion.from || !promotion.to) return;
+    // ریست بازی
+    gameRef.current.reset();
+    setFen(gameRef.current.fen());
     
-    const move = game.move({
-      from: promotion.from,
-      to: promotion.to,
-      promotion: piece === 'queen' ? 'q' : 
-                piece === 'rook' ? 'r' : 
-                piece === 'bishop' ? 'b' : 'n'
-    });
-    
-    if (move) {
-      // تغییر نوبت تایمر (حرفه‌ای)
-      const previousPlayer = game.turn() === 'w' ? 'black' : 'white';
-      if (gameMode === 'pvp') {
-        switchTimer(previousPlayer);
-      }
-      
-      setFen(game.fen());
-      setLastMove([move.from as Square, move.to as Square]);
-      setMoveHistory([...game.history({ verbose: true })]);
-      setSelectedMoveIndex(null);
-      
-      showMessage(`🎉 سرباز به ${piece === 'queen' ? 'وزیر' : 
-                              piece === 'rook' ? 'رخ' : 
-                              piece === 'bishop' ? 'فیل' : 'اسب'} ارتقاء یافت!`);
-      
-      // بررسی پایان بازی
-      if (game.isGameOver()) {
-        if (game.isCheckmate()) {
-          const winner = game.turn() === 'w' ? 'black' : 'white';
-          handleGameEnd('checkmate', winner);
-        } else if (game.isStalemate()) {
-          handleGameEnd('stalemate');
-        } else if (game.isDraw()) {
-          handleGameEnd('draw');
-        }
-      }
-      
-      if (cgRef.current) {
-        const dests = calculateDests();
-        const convertedDests = convertDestsForChessground(dests);
-        
-        cgRef.current.set({
-          fen: game.fen(),
-          check: game.inCheck(),
-          lastMove: [move.from as Key, move.to as Key],
-          movable: {
-            dests: convertedDests,
-            color: game.turn() === 'w' ? 'white' : 'black',
-          }
-        });
-      }
-    }
-    
-    // بستن پنجره ارتقاء
-    setPromotion({ pending: false, from: null, to: null });
-  }, [promotion, game, calculateDests, convertDestsForChessground, showMessage, switchTimer, handleGameEnd, gameMode]);
-
-  // ========== شروع مجدد بازی ==========
-  const handleReset = useCallback(() => {
-    game.reset();
-    setFen(game.fen());
-    setLastMove(null);
-    setMoveHistory([]);
-    setGameStarted(false);
+    // تنظیم تایمرها
+    setWhiteTime(selectedTimeControl.time);
+    setBlackTime(selectedTimeControl.time);
+    setGameStarted(true);
     setGameOver(false);
     setWinner(null);
-    setActiveTimer(null);
-    setSelectedMoveIndex(null);
-    setIsEngineThinking(false);
-    setEngineMessage('');
+    setGameStage('game');
+    setIsAiThinking(false);
+    setMoveCount(0);
     
-    showMessage("🔄 بازی ریست شد! حالت و سطح بازی را انتخاب کنید.");
-    
-    if (cgRef.current) {
-      cgRef.current.set({ fen: game.fen() });
-    }
-  }, [game, showMessage]);
-
-  // ========== تنظیمات Chessground ==========
-  const chessgroundConfig = useMemo((): Config => {
-    const dests = calculateDests();
-    const convertedDests = convertDestsForChessground(dests);
-    
-    return {
-      fen: fen,
-      orientation: orientation,
-      coordinates: true,
-      viewOnly: false,
-      highlight: { 
-        lastMove: true, 
-        check: true,
-      },
-      animation: { 
-        enabled: true, 
-        duration: 200 
-      },
-      movable: {
-        free: isBoardEditor,
-        color: isBoardEditor ? 'both' : (gameOver ? 'none' : (game.turn() === 'w' ? 'white' : 'black')),
-        dests: convertedDests,
-        showDests: !isBoardEditor,
-        events: {
-          after: handleMoveCG
-        }
-      },
-      premovable: {
-        enabled: premoveEnabled && !isBoardEditor && !gameOver,
-        showDests: true,
-      },
-      draggable: {
-        enabled: true,
-        showGhost: true,
-        deleteOnDropOff: false,
-        distance: 3,
-      },
-      drawable: {
-        enabled: drawMode,
-        visible: true,
-        defaultSnapToValidMove: true,
-        brushes: {
-          green: { key: 'g', color: '#15781B', opacity: 0.8, lineWidth: 10 },
-          red: { key: 'r', color: '#882020', opacity: 0.8, lineWidth: 10 },
-          blue: { key: 'b', color: '#003088', opacity: 0.8, lineWidth: 10 },
-          yellow: { key: 'y', color: '#E6E600', opacity: 0.8, lineWidth: 10 }
-        }
-      },
-      events: {
-        change: () => {
-          // برای بهینه‌سازی عملکرد
-        }
+    // تنظیم تخته بر اساس رنگ کاربر
+    if (playerColor === 'white') {
+      setActiveTimer("white");
+      setOrientation("white");
+      showMessage(`🎮 بازی شروع شد! شما سفید هستید. ${selectedTimeControl.name} - AI سطح ${difficulty}`);
+    } else {
+      setActiveTimer("black");
+      setOrientation("black");
+      showMessage(`🎮 بازی شروع شد! شما سیاه هستید. ${selectedTimeControl.name} - AI سطح ${difficulty}`);
+      // اگر کاربر سیاه است، AI شروع می‌کند
+      if (mode === 'bot') {
+        setTimeout(() => setIsAiThinking(true), 500);
       }
-    };
-  }, [fen, orientation, game, isBoardEditor, premoveEnabled, drawMode, gameOver, calculateDests, convertDestsForChessground, handleMoveCG]);
+    }
+    
+    // به‌روزرسانی Chessground
+    if (cgRef.current && boardRef.current) {
+      const dests = calculateDests();
+      
+      cgRef.current.set({
+        fen: gameRef.current.fen(),
+        orientation: playerColor === 'white' ? 'white' : 'black',
+        turnColor: 'white',
+        movable: {
+          free: false,
+          color: playerColor === 'white' ? 'white' : 'black',
+          dests,
+          showDests: true,
+        }
+      });
+    }
+  }, [selectedTimeControl, playerColor, mode, showMessage, calculateDests, difficulty]);
 
-  // ========== useEffect‌ها ==========
-  // مقداردهی اولیه Chessground
+  // ========== Chessground Lifecycle ==========
   useEffect(() => {
-    if (!boardRef.current || cgRef.current) return;
+    if (gameStage !== 'game') return;
+    if (!boardRef.current) return;
+    if (!gameRef.current) return;
+
+    const dests = calculateDests();
     
-    cgRef.current = CG(boardRef.current, chessgroundConfig);
-    
+    if (!cgRef.current) {
+      cgRef.current = CG(boardRef.current, {
+        fen: gameRef.current.fen(),
+        orientation,
+        coordinates: false, // برای موبایل بهتره مخفی باشه
+        viewOnly: false,
+        highlight: { lastMove: true, check: true },
+        animation: { enabled: true, duration: 200 },
+        movable: {
+          free: false,
+          color: playerColor === 'white' ? 'white' : 'black',
+          dests,
+          showDests: true,
+          events: {
+            after: handleUserMove
+          }
+        },
+        draggable: { 
+          enabled: true, 
+          showGhost: true, 
+          distance: 3,
+          magnified: false 
+        },
+      });
+    } else {
+      cgRef.current.set({
+        fen: gameRef.current.fen(),
+        orientation,
+        movable: {
+          free: false,
+          color: playerColor === 'white' ? 'white' : 'black',
+          dests,
+          showDests: true,
+        }
+      });
+    }
+
     return () => {
-      if (cgRef.current) {
+      if (gameStage !== 'game' && cgRef.current) {
         cgRef.current.destroy();
         cgRef.current = null;
       }
     };
-  }, []);
+  }, [gameStage, orientation, playerColor, calculateDests, handleUserMove]);
 
-  // به‌روزرسانی تنظیمات Chessground
   useEffect(() => {
-    if (cgRef.current) {
-      cgRef.current.set(chessgroundConfig);
-    }
-  }, [chessgroundConfig]);
+    if (gameStage !== 'game') return;
+    if (!cgRef.current) return;
+    
+    cgRef.current.set({ fen });
+  }, [fen, gameStage]);
 
-  // مدیریت تایمر
+  // ========== مدیریت تایمر ==========
   useEffect(() => {
     if (!gameStarted || gameOver || !activeTimer) {
       if (timerRef.current) {
@@ -717,7 +485,7 @@ export function ChessBoard() {
       if (activeTimer === "white") {
         setWhiteTime(prev => {
           if (prev <= 0.1) {
-            handleTimeout("white");
+            handleGameEnd('timeout', 'black');
             return 0;
           }
           return Math.max(0, prev - 0.1);
@@ -725,7 +493,7 @@ export function ChessBoard() {
       } else if (activeTimer === "black") {
         setBlackTime(prev => {
           if (prev <= 0.1) {
-            handleTimeout("black");
+            handleGameEnd('timeout', 'white');
             return 0;
           }
           return Math.max(0, prev - 0.1);
@@ -738,536 +506,400 @@ export function ChessBoard() {
         clearInterval(timerRef.current);
       }
     };
-  }, [gameStarted, gameOver, activeTimer, handleTimeout]);
+  }, [gameStarted, gameOver, activeTimer, handleGameEnd]);
 
-  // ========== کامپوننت‌های داخلی ==========
-  // پنجره انتخاب ارتقاء
-  const PromotionModal = () => {
-    if (!promotion.pending) return null;
-    
-    const pieces = [
-      { type: 'queen' as const, label: 'وزیر', emoji: '👑' },
-      { type: 'rook' as const, label: 'رخ', emoji: '🏰' },
-      { type: 'bishop' as const, label: 'فیل', emoji: '♝' },
-      { type: 'knight' as const, label: 'اسب', emoji: '♞' }
-    ];
-    
-    return (
-      <div className="promotion-overlay">
-        <div className="promotion-modal">
-          <div className="promotion-header">
-            <h3>🎯 انتخاب ارتقاء</h3>
-            <p>سرباز به رتبه آخر رسیده است</p>
-          </div>
-          <div className="promotion-grid">
-            {pieces.map(piece => (
-              <button
-                key={piece.type}
-                className="promotion-option"
-                onClick={() => handlePromotionChoice(piece.type)}
-              >
-                <div className="promotion-emoji">{piece.emoji}</div>
-                <div className="promotion-label">{piece.label}</div>
-              </button>
-            ))}
-          </div>
-          <button 
-            className="promotion-cancel"
-            onClick={() => setPromotion({ pending: false, from: null, to: null })}
-          >
-            لغو
-          </button>
-        </div>
-      </div>
-    );
-  };
-
-  // کامپوننت تایمر
-  const TimerDisplay = () => {
-    const isWhiteTurn = game.turn() === 'w';
-    
-    return (
-      <div className="timer-container">
-        <div className={`timer-display ${activeTimer === "white" ? "active-turn" : ""}`}>
-          <div className="timer-label">
-            {ICONS.white} سفید
-            {isWhiteTurn && gameStarted && !gameOver && <span className="turn-indicator"> ← نوبت حرکت</span>}
-          </div>
-          <div className={`timer-value ${whiteTime < 10 ? "time-critical" : whiteTime < 30 ? "time-low" : ""} ${activeTimer === "white" ? "timer-active" : ""}`}>
-            {ICONS.clock} {formatTime(whiteTime)}
-          </div>
-          {increment > 0 && (
-            <div className="increment-indicator">
-              {ICONS.increment} +{increment} ثانیه
-            </div>
-          )}
-        </div>
-        
-        <div className="timer-separator">VS</div>
-        
-        <div className={`timer-display ${activeTimer === "black" ? "active-turn" : ""}`}>
-          <div className="timer-label">
-            {ICONS.black} سیاه
-            {!isWhiteTurn && gameStarted && !gameOver && <span className="turn-indicator"> ← نوبت حرکت</span>}
-          </div>
-          <div className={`timer-value ${blackTime < 10 ? "time-critical" : blackTime < 30 ? "time-low" : ""} ${activeTimer === "black" ? "timer-active" : ""}`}>
-            {ICONS.clock} {formatTime(blackTime)}
-          </div>
-          {increment > 0 && (
-            <div className="increment-indicator">
-              {ICONS.increment} +{increment} ثانیه
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  // انتخاب زمان‌بندی
-  const TimeControlSelector = () => {
-    return (
-      <div className="time-control-selector">
-        <div className="selector-header">
-          <h3>{ICONS.time} انتخاب زمان‌بندی حرفه‌ای</h3>
-          <p>مطابق با استاندارد فیده و مسابقات جهانی</p>
-        </div>
-        
-        <div className="time-control-grid">
-          {Object.entries(TIME_CONTROLS).map(([key, control]) => (
-            <button
-              key={key}
-              className={`time-control-option ${selectedTimeControl === key ? "selected" : ""} ${gameStarted ? "disabled" : ""}`}
-              onClick={() => !gameStarted && setSelectedTimeControl(key as keyof typeof TIME_CONTROLS)}
-              disabled={gameStarted}
-            >
-              <div className="control-name">{control.name}</div>
-              <div className="control-time">{control.time / 60} دقیقه</div>
-              {control.increment > 0 && (
-                <div className="control-increment">+{control.increment} ثانیه</div>
-              )}
-            </button>
-          ))}
-        </div>
-        
-        <div className="time-control-info">
-          <div className="info-item">
-            <span className="info-label">⏱️ تایم تجمعی:</span>
-            <span className="info-value">هر بازیکن مجموعاً {TIME_CONTROLS[selectedTimeControl].time / 60} دقیقه زمان دارد</span>
-          </div>
-          {TIME_CONTROLS[selectedTimeControl].increment > 0 && (
-            <div className="info-item">
-              <span className="info-label">{ICONS.increment} اینکرمنت:</span>
-              <span className="info-value">پس از هر حرکت {TIME_CONTROLS[selectedTimeControl].increment} ثانیه اضافه می‌شود</span>
-            </div>
-          )}
-          <div className="info-item">
-            <span className="info-label">⚡ مدل:</span>
-            <span className="info-value">
-              {selectedTimeControl.includes('bullet') ? 'بولت (سریع)' :
-               selectedTimeControl.includes('blitz') ? 'بلیتز (سریع)' :
-               selectedTimeControl.includes('rapid') ? 'رپید (متوسط)' : 'کلاسیک (آرام)'}
-            </span>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // وضعیت بازی
-  const GameStatus = () => {
-    if (!gameStarted) return null;
-    
-    let statusText = "";
-    let statusEmoji = "📊";
-    let statusColor = "normal";
-    
-    if (gameOver) {
-      if (winner === 'draw') {
-        statusText = "تساوی";
-        statusEmoji = "🤝";
-        statusColor = "draw";
-      } else {
-        statusText = `${winner === 'white' ? 'سفید' : 'سیاه'} برنده شد!`;
-        statusEmoji = "🎉";
-        statusColor = "victory";
+  // ========== AI Timer ==========
+  useEffect(() => {
+    if (mode === 'bot' && isAiThinking && !gameOver && gameStarted) {
+      const level = DIFFICULTY_LEVELS.find(l => l.value === difficulty);
+      const thinkTime = level?.thinkTime || 1000;
+      
+      if (aiTimeoutRef.current) {
+        clearTimeout(aiTimeoutRef.current);
       }
-    } else if (game.isCheckmate()) {
-      statusText = "کیش و مات!";
-      statusEmoji = "♟️";
-      statusColor = "checkmate";
-    } else if (game.isStalemate()) {
-      statusText = "پات!";
-      statusEmoji = "🏆";
-      statusColor = "stalemate";
-    } else if (game.inCheck()) {
-      statusText = "کیش!";
-      statusEmoji = "⚔️";
-      statusColor = "check";
-    } else {
-      statusText = "در جریان";
-      statusEmoji = "📈";
-      statusColor = "normal";
+      
+      // نشان دادن وضعیت فکر کردن
+      setTimeout(() => {
+        handleAiMove();
+      }, thinkTime);
+
+      return () => {
+        if (aiTimeoutRef.current) {
+          clearTimeout(aiTimeoutRef.current);
+        }
+      };
     }
-    
-    return (
-      <div className="game-status">
-        <div className="status-header">
-          <h3>📊 وضعیت بازی</h3>
-        </div>
-        
-        <div className="status-grid">
-          <div className="status-item">
-            <span className="status-label">🎯 نوبت حرکت:</span>
-            <span className={`status-value ${game.turn() === 'w' ? 'white-turn' : 'black-turn'}`}>
-              {gameMode === 'vsAI' && game.turn() === (aiColor === 'white' ? 'w' : 'b') ? '🤖 AI' : 
-               game.turn() === 'w' ? "⚪ سفید" : "⚫ سیاه"}
-            </span>
-          </div>
-          
-          <div className="status-item">
-            <span className="status-label">📈 وضعیت:</span>
-            <span className={`status-value status-${statusColor}`}>
-              {statusEmoji} {statusText}
-            </span>
-          </div>
-          
-          <div className="status-item">
-            <span className="status-label">📋 تعداد حرکات:</span>
-            <span className="status-value">{moveHistory.length}</span>
-          </div>
-          
-          <div className="status-item">
-            <span className="status-label">⏱️ تایمر فعال:</span>
-            <span className="status-value">
-              {activeTimer === 'white' ? '⚪ سفید' : activeTimer === 'black' ? '⚫ سیاه' : '⏸️ توقف'}
-            </span>
-          </div>
-        </div>
-      </div>
-    );
+  }, [mode, isAiThinking, gameOver, gameStarted, difficulty, handleAiMove]);
+
+  // ========== Game State ==========
+  const currentTurn = gameRef.current?.turn() === 'w' ? 'white' : 'black';
+  const inCheck = gameRef.current?.inCheck() || false;
+  const isCheckmate = gameRef.current?.isCheckmate() || false;
+  const isStalemate = gameRef.current?.isStalemate() || false;
+  const isDraw = gameRef.current?.isDraw() || false;
+
+  // ========== Handlers ==========
+  const handleColorSelect = (color: 'white' | 'black') => {
+    setPlayerColor(color);
   };
 
-  // انتخاب‌کننده حالت بازی
-  const GameModeSelector = () => (
-    <div className="game-mode-selector">
-      <div className="selector-header">
-        <h3>{ICONS.vsHuman} انتخاب حالت بازی</h3>
-        <p>بازی در مقابل دوست یا هوش مصنوعی</p>
-      </div>
-      
-      <div className="mode-buttons">
-        <button
-          className={`mode-btn ${gameMode === 'pvp' ? 'active' : ''}`}
-          onClick={() => setGameMode('pvp')}
-          disabled={gameStarted}
-        >
-          <svg className="icon-human" viewBox="0 0 24 24">
-            <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
-          </svg>
-          بازیکن در مقابل بازیکن
-        </button>
-        
-        <button
-          className={`mode-btn ${gameMode === 'vsAI' ? 'active' : ''}`}
-          onClick={() => setGameMode('vsAI')}
-          disabled={gameStarted}
-        >
-          <svg className="icon-robot" viewBox="0 0 24 24">
-            <path d="M20 9V7c0-1.1-.9-2-2-2h-3c0-1.66-1.34-3-3-3S9 3.34 9 5H6c-1.1 0-2 .9-2 2v2c-1.66 0-3 1.34-3 3s1.34 3 3 3v4c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-4c1.66 0 3-1.34 3-3s-1.34-3-3-3zM7.5 11.5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5S9.83 13 9 13s-1.5-.67-1.5-1.5zM16 17H8v-2h8v2zm-1-4c-.83 0-1.5-.67-1.5-1.5S14.17 10 15 10s1.5.67 1.5 1.5S15.83 13 15 13z"/>
-          </svg>
-          بازی با هوش مصنوعی
-        </button>
-      </div>
-      
-      {gameMode === 'vsAI' && (
-        <div className="ai-settings">
-          <div className="setting-row">
-            <label>🎨 رنگ شما:</label>
-            <div className="color-buttons">
-              <button
-                className={`color-btn ${aiColor === 'white' ? 'active' : ''}`}
-                onClick={() => setAiColor('white')}
-                disabled={gameStarted}
-              >
-                ⚪ سفید
-              </button>
-              <button
-                className={`color-btn ${aiColor === 'black' ? 'active' : ''}`}
-                onClick={() => setAiColor('black')}
-                disabled={gameStarted}
-              >
-                ⚫ سیاه
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  const handleTimeControlSelect = (control: typeof TIME_CONTROLS[0]) => {
+    setSelectedTimeControl(control);
+  };
 
-  // انتخاب‌کننده سطح دشواری
-  const DifficultySelector = () => (
-    <div className="difficulty-selector">
-      <div className="selector-header">
-        <h3>{ICONS.ai} سطح دشواری هوش مصنوعی</h3>
-        <p>Stockfish Level 1 (آسان) تا 20 (استاد)</p>
-      </div>
-      
-      <div className="difficulty-levels">
-        {DIFFICULTY_LEVELS.map(level => (
-          <button
-            key={level.value}
-            className={`difficulty-btn ${
-              difficulty === level.value ? 'active' : ''
-            } ${
-              level.value <= 3 ? 'easy' :
-              level.value <= 8 ? 'medium' : 'hard'
-            }`}
-            onClick={() => setDifficulty(level.value)}
-            disabled={gameStarted}
-            style={{ borderColor: level.color }}
-          >
-            <div className="difficulty-label">
-              {level.value <= 3 ? ICONS.easy :
-               level.value <= 8 ? ICONS.medium : ICONS.hard}
-               سطح {level.value}
-            </div>
-            <div className="difficulty-desc">
-              {level.value === 1 && 'مبتدی'}
-              {level.value === 3 && 'آسان'}
-              {level.value === 5 && 'متوسط پایین'}
-              {level.value === 8 && 'متوسط'}
-              {level.value === 12 && 'سخت'}
-              {level.value === 16 && 'خیلی سخت'}
-              {level.value === 20 && 'استاد'}
-            </div>
-          </button>
-        ))}
-      </div>
-      
-      <div className="difficulty-info">
-        <p>
-          <strong>💡 نکته:</strong> سطح بالاتر = تفکر عمیق‌تر و حرکات قوی‌تر
-        </p>
-        <p style={{ fontSize: '0.9rem', opacity: 0.8 }}>
-          <strong>سطح {difficulty}:</strong>
-          {difficulty <= 3 && ' مناسب برای مبتدیان و یادگیری'}
-          {difficulty > 3 && difficulty <= 8 && ' مناسب برای بازیکنان متوسط'}
-          {difficulty > 8 && difficulty <= 12 && ' چالش‌برانگیز برای حرفه‌ای‌ها'}
-          {difficulty > 12 && ' سطح استادی - فقط برای خبرگان!'}
-        </p>
-      </div>
-    </div>
-  );
+  const handleDifficultySelect = (level: number) => {
+    setDifficulty(level);
+  };
 
-  // کارت اطلاعات Stockfish
-  const StockfishInfoCard = () => {
-    if (gameMode !== 'vsAI' || !gameStarted) return null;
+  const handleNextStage = () => {
+    if (gameStage === 'color_selection') {
+      setGameStage('time_control');
+    } else if (gameStage === 'time_control') {
+      if (mode === 'bot') {
+        setGameStage('difficulty');
+      } else {
+        startGame();
+      }
+    }
+  };
+
+  const handleBackStage = () => {
+    if (gameStage === 'time_control') {
+      setGameStage('color_selection');
+    } else if (gameStage === 'difficulty') {
+      setGameStage('time_control');
+    }
+  };
+
+  const handleSurrender = () => {
+    if (!gameStarted || gameOver) return;
     
-    const isAiTurn = game.turn() === (aiColor === 'white' ? 'w' : 'b');
+    if (window.confirm("آیا مطمئنید می‌خواهید تسلیم شوید؟")) {
+      handleGameEnd('surrender', playerColor === 'white' ? 'black' : 'white');
+    }
+  };
+
+  const handleNewGame = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (aiTimeoutRef.current) clearTimeout(aiTimeoutRef.current);
     
-    return (
-      <div className="stockfish-info-card">
-        <div className="info-header">
-          <span>{ICONS.ai}</span>
-          <h3>هوش مصنوعی Stockfish</h3>
-        </div>
+    setGameStage('color_selection');
+    setGameStarted(false);
+    setGameOver(false);
+    setWinner(null);
+    setActiveTimer(null);
+    setWhiteTime(0);
+    setBlackTime(0);
+    setIsAiThinking(false);
+    setMoveCount(0);
+  };
+
+  // ========== رندر Stageها ==========
+  const renderStage = () => {
+    switch (gameStage) {
+      case 'color_selection':
+        return (
+          <div className="setup-stage">
+            <div className="stage-header">
+              <h2>🎨 انتخاب رنگ</h2>
+              <p>رنگ خود را انتخاب کنید</p>
+            </div>
+            
+            <div className="color-selection">
+              <div 
+                className={`color-option ${playerColor === 'white' ? 'selected' : ''}`}
+                onClick={() => handleColorSelect('white')}
+              >
+                <div className="color-preview white">
+                  <span className="king-emoji">♔</span>
+                </div>
+                <div className="color-info">
+                  <h3>⚪ سفید</h3>
+                  <p>حرکت اول</p>
+                  <div className="color-features">
+                    <span>ابتکار عمل</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div 
+                className={`color-option ${playerColor === 'black' ? 'selected' : ''}`}
+                onClick={() => handleColorSelect('black')}
+              >
+                <div className="color-preview black">
+                  <span className="king-emoji">♚</span>
+                </div>
+                <div className="color-info">
+                  <h3>⚫ سیاه</h3>
+                  <p>ضد حمله</p>
+                  <div className="color-features">
+                    <span>دفاع قوی</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="stage-actions">
+              <button className="next-btn" onClick={handleNextStage}>
+                ادامه
+              </button>
+            </div>
+          </div>
+        );
+
+      case 'time_control':
+        return (
+          <div className="setup-stage">
+            <div className="stage-header">
+              <h2>⏱️ زمان بازی</h2>
+              <p>مدت زمان را انتخاب کنید</p>
+            </div>
+            
+            <div className="time-control-selection">
+              {TIME_CONTROLS.map((control) => (
+                <div
+                  key={control.id}
+                  className={`time-option ${selectedTimeControl.id === control.id ? 'selected' : ''}`}
+                  onClick={() => handleTimeControlSelect(control)}
+                >
+                  <div className="time-option-header">
+                    <h3>{control.name}</h3>
+                    <span className="time-badge">
+                      {control.time / 60} دقیقه
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="stage-actions">
+              <button className="back-btn" onClick={handleBackStage}>بازگشت</button>
+              <button className="next-btn" onClick={handleNextStage}>ادامه</button>
+            </div>
+          </div>
+        );
+
+      case 'difficulty':
+        return (
+          <div className="setup-stage">
+            <div className="stage-header">
+              <h2>🤖 سطح AI</h2>
+              <p>قدرت ربات را انتخاب کنید</p>
+            </div>
+            
+            <div className="difficulty-selection">
+              {DIFFICULTY_LEVELS.map((level) => (
+                <div
+                  key={level.value}
+                  className={`difficulty-option ${difficulty === level.value ? 'selected' : ''}`}
+                  onClick={() => handleDifficultySelect(level.value)}
+                >
+                  <div className="difficulty-header">
+                    <h3>{level.label}</h3>
+                  </div>
+                  <div className="difficulty-description">
+                    {level.value === 1 && 'حرکات ساده، مناسب شروع'}
+                    {level.value === 3 && 'آموزشی، حرکات منطقی'}
+                    {level.value === 5 && 'متوسط، چالش مناسب'}
+                    {level.value === 8 && 'پیشرفته، هوشمند'}
+                    {level.value === 12 && 'حرفه‌ای، سخت'}
+                    {level.value === 16 && 'نخبه، چالش جدی'}
+                    {level.value === 20 && 'استاد، برای نخبگان'}
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="stage-actions">
+              <button className="back-btn" onClick={handleBackStage}>بازگشت</button>
+              <button className="start-game-btn" onClick={startGame}>
+                🎮 شروع بازی
+              </button>
+            </div>
+          </div>
+        );
+
+      case 'game':
+        const levelLabel = DIFFICULTY_LEVELS.find(l => l.value === difficulty)?.label || "متوسط";
         
-        <div className="info-grid">
-          <div className="info-item">
-            <span className="info-label">🏆 سطح دشواری</span>
-            <span className="info-value">
-              {difficulty <= 3 ? '😊 مبتدی' :
-               difficulty <= 8 ? '😐 متوسط' :
-               difficulty <= 12 ? '😠 پیشرفته' : '🔥 استاد'} (سطح {difficulty})
-            </span>
+        return (
+          <div className="game-stage">
+            {/* هدر بازی */}
+            <div className="game-header">
+              <div className="player-info">
+                <div className="player-card you">
+                  <div className="player-color-indicator">
+                    {playerColor === 'white' ? '⚪' : '⚫'}
+                  </div>
+                  <div className="player-details">
+                    <h4>شما</h4>
+                    <p>{playerColor === 'white' ? 'سفید' : 'سیاه'}</p>
+                  </div>
+                </div>
+                
+                {/* <div className="vs">🎮</div> */}
+                
+                <div className="player-card opponent">
+                  <div className="player-color-indicator ai-indicator">
+                    🤖
+                  </div>
+                  <div className="player-details">
+                    <h4>ربات</h4>
+                    <p>{levelLabel}</p>
+                  </div>
+
+
+                </div>
+
+              <div style={{display:"flex",justifyContent:"center"}}>
+                                  {onBack && (
+                <button className="back-to-home" onClick={onBack}>
+                  ← خانه
+                </button>
+              )}
+                  </div>
+                  
+              </div>
+              
+
+            </div>
+            
+            {/* تایمرها */}
+            <div className="timers-container">
+              <div className={`timer ${activeTimer === 'white' ? 'active' : ''} ${whiteTime < 30 ? 'critical' : ''}`}>
+                <div className="timer-label">
+                  ⚪ {playerColor === 'white' ? 'شما' : 'ربات'}
+                </div>
+                <div className="timer-value">{formatTime(whiteTime)}</div>
+              </div>
+              
+              <div className={`timer ${activeTimer === 'black' ? 'active' : ''} ${blackTime < 30 ? 'critical' : ''}`}>
+                <div className="timer-label">
+                  ⚫ {playerColor === 'black' ? 'شما' : 'ربات'}
+                </div>
+                <div className="timer-value">{formatTime(blackTime)}</div>
+              </div>
+            </div>
+            
+            {/* تخته شطرنج */}
+            <div className="chess-board-container">
+              <div ref={boardRef} className="chess-board-wrapper" />
+            </div>
+            
+            {/* وضعیت بازی */}
+            <div className="game-status-bar">
+              <div className="status-item">
+                <span>نوبت:</span>
+                <strong>
+                  {currentTurn === playerColor ? 'شما' : 'ربات'}
+                </strong>
+              </div>
+              
+              <div className="status-item">
+                <span>وضعیت:</span>
+                <strong>
+                  {isCheckmate ? 'کیش مات' :
+                   isStalemate ? 'پات' :
+                   inCheck ? 'کیش' :
+                   'در جریان'}
+                </strong>
+              </div>
+            </div>
+            
+            {/* کنترل‌های بازی */}
+            <div className="game-controls">
+              <button className="control-btn flip" onClick={() => setOrientation(prev => prev === "white" ? "black" : "white")}>
+                🔄 چرخش
+              </button>
+              
+              {!gameOver && (
+                <button className="control-btn surrender" onClick={handleSurrender}>
+                  🏳️ تسلیم
+                </button>
+              )}
+              
+              {/* <button className="control-btn new-game" onClick={handleNewGame}>
+                🆕 جدید
+              </button> */}
+            </div>
+            
+            {/* نتیجه بازی */}
+            {gameOver && (
+              <div className="game-result-overlay">
+                <div className="game-result">
+                  <h2>
+                    {winner === 'draw' ? 'مساوی شد!' :
+                     winner === playerColor ? 'شما برنده شدید!' : 
+                     'ربات برنده شد!'}
+                  </h2>
+                  <p>
+                    {isCheckmate ? 'با کیش و مات' :
+                     isStalemate ? 'با پات' :
+                     isDraw ? 'با تساوی' : 'با اتمام زمان'}
+                  </p>
+                  <div className="result-actions">
+                    {/* <button className="result-btn play-again" onClick={handleNewGame}>
+                      🔄 بازی مجدد
+                    </button> */}
+                    {onBack && (
+                      <button className="result-btn back-home" onClick={onBack}>
+                        ← خانه
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-          
-          <div className="info-item">
-            <span className="info-label">🎨 رنگ AI</span>
-            <span className="info-value">
-              {aiColor === 'white' ? '⚪ سفید' : '⚫ سیاه'}
-            </span>
-          </div>
-          
-          <div className="info-item">
-            <span className="info-label">🤖 وضعیت AI</span>
-            <span className="info-value">
-              {isEngineThinking ? '🔍 در حال فکر کردن...' :
-               isAiTurn ? '⏳ منتظر حرکت AI' : '✅ منتظر حرکت شما'}
-            </span>
-          </div>
-          
-          <div className="info-item">
-            <span className="info-label">⚡ قدرت تخمینی</span>
-            <span className="info-value">
-              {difficulty * 50} واحد الوریت
-            </span>
-          </div>
-        </div>
-        
-        {engineMessage && (
-          <div className="engine-message">
-            {engineMessage}
-          </div>
-        )}
-      </div>
-    );
+        );
+    }
   };
 
   // ========== رندر نهایی ==========
   return (
     <div className="telegram-chess-app">
-      {/* پیام موقت */}
+      {/* Stage Indicator */}
+      {gameStage !== 'game' && (
+        <div className="stage-indicator">
+          <div className={`stage-step ${gameStage === 'color_selection' ? 'active' : ''}`}>
+            <div className="step-number">1</div>
+            <div className="step-label">رنگ</div>
+          </div>
+          <div className={`stage-step ${gameStage === 'time_control' ? 'active' : ''}`}>
+            <div className="step-number">2</div>
+            <div className="step-label">زمان</div>
+          </div>
+          {mode === 'bot' && (
+            <>
+              <div className={`stage-step ${gameStage === 'difficulty' ? 'active' : ''}`}>
+                <div className="step-number">3</div>
+                <div className="step-label">سطح</div>
+              </div>
+              <div className={`stage-step ${gameStage === 'game' ? 'active' : ''}`}>
+                <div className="step-number">4</div>
+                <div className="step-label">بازی</div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+      
+      {/* Message Toast */}
       {message && (
         <div className="message-toast">
           <div className="message-content">{message}</div>
         </div>
       )}
       
-      {/* مودال ارتقاء */}
-      <PromotionModal />
-      
-      {/* موتور Stockfish */}
-      {gameMode === 'vsAI' && gameStarted && !gameOver && (
-        <StockfishEngine
-          level={difficulty}
-          fen={fen}
-          onMove={handleAiMove}
-          isEngineTurn={game.turn() === (aiColor === 'white' ? 'w' : 'b')}
-          isGameActive={!gameOver && gameStarted}
-        />
-      )}
-      
-      {/* نمایش تایمر */}
-      <TimerDisplay />
-      
-      {/* انتخاب حالت بازی */}
-      <GameModeSelector />
-      
-      {/* انتخاب سطح دشواری (فقط در حالت AI) */}
-      {gameMode === 'vsAI' && <DifficultySelector />}
-      
-      {/* کارت اطلاعات Stockfish */}
-      <StockfishInfoCard />
-      
-      {/* انتخاب زمان‌بندی */}
-      {!gameStarted && <TimeControlSelector />}
-      
-      {/* تخته شطرنج */}
-      <div className="chess-board-container">
-        <div 
-          ref={boardRef} 
-          className="chess-board"
-          style={{ 
-            width: "100%",
-            maxWidth: "400px",
-            height: "400px",
-            margin: "0 auto",
-            borderRadius: "12px",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
-            overflow: "hidden"
-          }} 
-        />
-      </div>
-      
-      {/* کنترل‌های بازی */}
-      <div className="game-controls">
-        {!gameStarted ? (
-          <button className="control-btn start-game" onClick={startGame}>
-            ▶️ شروع بازی
-          </button>
-        ) : (
-          <>
-            {!gameOver && (
-              <>
-                <button className="control-btn surrender-game" onClick={handleSurrender}>
-                  {ICONS.surrender} تسلیم
-                </button>
-                
-                <button className="control-btn draw-game" onClick={handleDrawOffer}>
-                  {ICONS.draw} پیشنهاد تساوی
-                </button>
-                
-                {gameMode === 'pvp' && (
-                  <>
-                    <button className="control-btn pause-game" onClick={() => setActiveTimer(null)}>
-                      ⏸️ توقف بازی
-                    </button>
-                    
-                    <button className="control-btn resume-game" onClick={() => setActiveTimer(game.turn() === 'w' ? 'white' : 'black')}>
-                      ▶️ ادامه بازی
-                    </button>
-                  </>
-                )}
-              </>
-            )}
-          </>
-        )}
-        
-        <button className="control-btn reset-game" onClick={handleReset}>
-          {ICONS.reset} بازی جدید
-        </button>
-        
-        <button className="control-btn flip-board" onClick={() => setOrientation(prev => prev === "white" ? "black" : "white")}>
-          {ICONS.flip} چرخش تخته
-        </button>
-      </div>
-      
-      {/* وضعیت بازی */}
-      <GameStatus />
-      
-      {/* نتیجه بازی */}
-      {gameOver && winner && (
-        <div className={`game-result ${winner === 'draw' ? 'draw' : 'win'}`}>
-          <div className="result-content">
-            <h3>
-              {winner === 'draw' ? '🤝 بازی مساوی شد!' :
-               gameMode === 'vsAI' && winner === (aiColor === 'white' ? 'black' : 'white') ?
-               '🎉 شما برنده شدید!' : '🎉 AI برنده شد!'}
-            </h3>
-            <div className="result-details">
-              <p>
-                {game.isCheckmate() ? 'با کیش و مات' :
-                 game.isStalemate() ? 'با پات' :
-                 game.isDraw() ? 'با شرایط تساوی' : 'با اتمام زمان'}
-              </p>
-              <p className="result-message">
-                {gameMode === 'vsAI' && winner === (aiColor === 'white' ? 'black' : 'white') ?
-                 'تبریک! شما از AI پیروز شدید!' :
-                 gameMode === 'vsAI' ? 'دفعه بعد بهتر بازی کنید!' :
-                 'بازی عالی بود!'}
-              </p>
-            </div>
-            <div className="result-actions">
-              <button className="result-btn" onClick={handleReset}>
-                🔄 بازی جدید
-              </button>
-              <button className="result-btn share" onClick={() => {
-                const resultText = gameMode === 'vsAI' ?
-                  `من ${winner === (aiColor === 'white' ? 'black' : 'white') ? 'برنده' : 'بازنده'} بازی با Stockfish (سطح ${difficulty}) شدم! ♟️` :
-                  `من در بازی شطرنج ${winner === 'draw' ? 'مساوی' : 'برنده'} شدم! ♟️`;
-                navigator.clipboard.writeText(resultText);
-                showMessage("📋 نتیجه بازی کپی شد!");
-              }}>
-                📋 اشتراک‌گذاری
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="app-footer">
-        <p className="footer-text">
-          ♟️ طراحی شده برای مینی‌اپ تلگرام | 
-          <span className="footer-highlight"> با قابلیت بازی با Stockfish</span>
-        </p>
-        <p className="footer-subtext">
-          {gameMode === 'vsAI' ? 
-           `سطح فعلی: ${difficulty} (${difficulty <= 3 ? 'آسان' : difficulty <= 8 ? 'متوسط' : 'سخت'})` :
-           'حالت: بازیکن در مقابل بازیکن'}
-        </p>
+      {/* Stage Content */}
+      <div className="stage-content">
+        {renderStage()}
       </div>
     </div>
   );
 }
+
+interface ChessBoardProps {
+  mode?: 'friend' | 'bot';
+  onBack?: () => void;
+} 

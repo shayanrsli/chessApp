@@ -1,42 +1,52 @@
-/* Header.css */
+/* Header.css - Dark Mode Telegram Style */
 .header {
-  padding: 16px 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background: #0a0a0a;
+  /* background: linear-gradient(135deg, #1e293b 0%, #334155 100%); */
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 0 0 24px 24px;
+  padding: 20px;
+  box-shadow: 0 4px 25px rgba(0, 0, 0, 0.3);
   position: sticky;
   top: 0;
   z-index: 100;
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .header-top {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 1rem;
 }
 
 .back-button {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: none;
-  border: none;
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 15px;
-  font-weight: 500;
-  padding: 8px 12px;
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #f8fafc;
+  padding: 10px 16px;
+  border-radius: 12px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  font-size: 0.95rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
 }
 
 .back-button:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+  border-color: #3b82f6;
+  transform: translateX(-3px);
 }
 
 .back-arrow {
-  font-size: 20px;
+  font-size: 1.2rem;
+  transition: transform 0.3s ease;
+}
+
+.back-button:hover .back-arrow {
+  transform: translateX(-3px);
 }
 
 .header-content {
@@ -44,16 +54,103 @@
 }
 
 .header-title {
-  font-size: 24px;
-  font-weight: 700;
-  color: #ffffff;
-  margin: 0 0 8px 0;
-  line-height: 1.2;
+  font-size: 1.75rem;
+  font-weight: 800;
+  margin: 0 0 0.5rem 0;
+  color: #f8fafc;
+  background: linear-gradient(135deg, #60a5fa, #a78bfa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .header-subtitle {
-  font-size: 15px;
-  color: rgba(255, 255, 255, 0.6);
+  font-size: 1rem;
+  color: #cbd5e1;
   margin: 0;
-  font-weight: 400;
+  opacity: 0.9;
+  font-weight: 500;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .header {
+    padding: 16px;
+    border-radius: 0 0 20px 20px;
+  }
+  
+  .header-title {
+    font-size: 1.5rem;
+  }
+  
+  .header-subtitle {
+    font-size: 0.95rem;
+  }
+  
+  .back-button {
+    padding: 8px 14px;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .header {
+    padding: 14px 12px;
+    border-radius: 0 0 16px 16px;
+  }
+  
+  .header-title {
+    font-size: 1.35rem;
+  }
+  
+  .header-subtitle {
+    font-size: 0.9rem;
+  }
+  
+  .back-button {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+  }
+}
+
+/* Loading Animation */
+.back-button.loading {
+  position: relative;
+  color: transparent;
+}
+
+.back-button.loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Dark Mode Variation */
+.dark-mode .header {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+}
+
+/* Touch Device Optimization */
+@media (hover: none) and (pointer: coarse) {
+  .back-button:hover {
+    transform: none;
+    background: rgba(255, 255, 255, 0.08);
+  }
+  
+  .back-button:active {
+    background: rgba(255, 255, 255, 0.12);
+    transform: scale(0.98);
+  }
 }
