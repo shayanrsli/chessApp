@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple SignalR Test</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.1/signalr.min.js"></script>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        button { margin: 5px; padding: 10px 20px; }
+        #log { margin-top: 20px; padding: 10px; border: 1px solid #ccc; min-height: 200px; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>🧪 تست ساده SignalR</h1>
+    
+    <button onclick="testDirect()">۱. تست مستقیم (بدون React)</button>
+    <button onclick="clearLog()">🧹 پاک کردن</button>
+    
+    <div id="log"></div>
+
+    <script>
+        const log = document.getElementById('log');
+        
+        function addLog(msg, type = 'info') {
+            const time = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.className = type;
+            div.innerHTML = `[${time}] ${msg}`;
+            log.appendChild(div);
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        function clearLog() {
+            log.innerHTML = '';
+        }
+        
+        async function testDirect() {
+            try {
+                addLog('🚀 Creating SignalR connection...');
+                
+                // ساده‌ترین کانفیگ ممکن
+                const connection = new signalR.HubConnectionBuilder()
+                    .withUrl('http://localhost:5131/chessHub')
+                    .withAutomaticReconnect()
+                    .build();
+                
+                connection.on('Connected', (data) => {
+                    addLog(`✅ Connected: ${JSON.stringify(data)}`, 'success');
+                });
+                
+                connection.onclose((error) => {
+                    addLog(`🔌 Connection closed: ${error}`, 'error');
+                });
+                
+                await connection.start();
+                addLog('✅ SignalR connection established!', 'success');
+                
+                // تست Ping
+                const pingResult = await connection.invoke('Ping');
+                addLog(`🏓 Ping result: ${pingResult}`, 'success');
+                
+                // تست ایجاد بازی
+                const gameResult = await connection.invoke('CreateGame', 'Test Game', false);
+                addLog(`🎮 Game created: ${JSON.stringify(gameResult)}`, 'success');
+                
+            } catch (error) {
+                addLog(`❌ Error: ${error.message}`, 'error');
+                console.error('Full error:', error);
+            }
+        }
+        
+        // تست خودکار
+        setTimeout(() => {
+            testDirect();
+        }, 1000);
+    </script>
+</body>
+</html>

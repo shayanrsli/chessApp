@@ -1,0 +1,655 @@
+.play-with-friend {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* هدر */
+.friend-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.back-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.back-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateX(-2px);
+}
+
+.friend-header h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  text-align: center;
+  flex: 1;
+}
+
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.status-dot.connected {
+  background: #4CAF50;
+  box-shadow: 0 0 15px #4CAF50;
+  animation: pulse 2s infinite;
+}
+
+.status-dot.disconnected {
+  background: #f44336;
+  box-shadow: 0 0 10px #f44336;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* محتوا */
+.friend-content {
+  padding: 20px;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+/* انتخاب حالت */
+.mode-selector {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 24px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 6px;
+  border-radius: 12px;
+}
+
+.mode-btn {
+  flex: 1;
+  padding: 14px 12px;
+  background: transparent;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+}
+
+.mode-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.mode-btn.active {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: white;
+  font-weight: 600;
+}
+
+.mode-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* پیام‌ها */
+.messages-container {
+  margin-bottom: 24px;
+}
+
+.alert {
+  padding: 14px 18px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  animation: slideIn 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.alert-error {
+  background: rgba(244, 67, 54, 0.2);
+  border: 1px solid rgba(244, 67, 54, 0.4);
+  color: #ffebee;
+}
+
+.alert-success {
+  background: rgba(76, 175, 80, 0.2);
+  border: 1px solid rgba(76, 175, 80, 0.4);
+  color: #e8f5e9;
+}
+
+.alert-icon {
+  font-size: 18px;
+}
+
+.alert-text {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* فرم‌ها */
+.section-title {
+  font-size: 22px;
+  margin: 0 0 24px 0;
+  text-align: center;
+  font-weight: 600;
+}
+
+.form-group {
+  margin-bottom: 24px;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 15px;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 16px;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.form-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.form-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  padding: 10px 0;
+}
+
+.checkbox-input {
+  width: 20px;
+  height: 20px;
+  accent-color: #667eea;
+}
+
+.checkbox-text {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.form-hint {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 6px;
+  padding-left: 32px;
+}
+
+/* دکمه‌ها */
+.btn {
+  width: 100%;
+  padding: 16px 24px;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #FF416C 0%, #FF4B2B 100%);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(255, 65, 108, 0.3);
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.btn-telegram {
+  background: linear-gradient(135deg, #0088cc 0%, #00acee 100%);
+  color: white;
+}
+
+.btn-telegram:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(0, 136, 204, 0.3);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* اسپینر لودینگ */
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* کارت اطلاعات بازی */
+.game-info-card {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 24px;
+  margin-top: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.info-card-title {
+  font-size: 20px;
+  margin: 0 0 20px 0;
+  text-align: center;
+  font-weight: 600;
+}
+
+.info-item {
+  margin-bottom: 20px;
+}
+
+.info-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 8px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.copyable-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 1px solid transparent;
+}
+
+.copyable-field:hover {
+  background: rgba(0, 0, 0, 0.3);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.info-code {
+  font-family: 'Courier New', monospace;
+  font-size: 15px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.copy-icon {
+  font-size: 18px;
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
+}
+
+.copyable-field:hover .copy-icon {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+.invite-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.waiting-message {
+  text-align: center;
+  margin-top: 24px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  animation: pulseBg 2s infinite;
+}
+
+@keyframes pulseBg {
+  0%, 100% { background: rgba(255, 255, 255, 0.1); }
+  50% { background: rgba(255, 255, 255, 0.15); }
+}
+
+.waiting-icon {
+  font-size: 32px;
+  margin-bottom: 10px;
+  animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+.waiting-text {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* بخش پیوستن */
+.join-methods {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.join-method {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.method-title {
+  font-size: 18px;
+  margin: 0 0 20px 0;
+  font-weight: 600;
+  text-align: center;
+}
+
+.divider {
+  position: relative;
+  text-align: center;
+  margin: 10px 0;
+}
+
+.divider:before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.divider-text {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 8px 20px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  position: relative;
+  z-index: 1;
+}
+
+.help-section {
+  margin-top: 30px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+}
+
+.help-title {
+  font-size: 18px;
+  margin: 0 0 16px 0;
+  font-weight: 600;
+}
+
+.help-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.help-list li {
+  padding: 10px 0;
+  padding-right: 24px;
+  position: relative;
+  font-size: 14px;
+}
+
+.help-list li:before {
+  content: "•";
+  position: absolute;
+  right: 0;
+  color: #FF416C;
+  font-size: 20px;
+}
+
+/* بخش دعوت */
+.invite-methods {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  margin-bottom: 30px;
+}
+
+.invite-method {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.method-content {
+  text-align: center;
+}
+
+.method-content p {
+  margin: 0 0 20px 0;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+}
+
+.invite-tips {
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tips-title {
+  font-size: 18px;
+  margin: 0 0 16px 0;
+  font-weight: 600;
+}
+
+.tips-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.tips-list li {
+  padding: 10px 0;
+  padding-right: 24px;
+  position: relative;
+  font-size: 14px;
+}
+
+.tips-list li:before {
+  content: "✓";
+  position: absolute;
+  right: 0;
+  color: #4CAF50;
+  font-weight: bold;
+}
+
+/* پاورقی */
+.friend-footer {
+  padding: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.1);
+  margin-top: 40px;
+}
+
+.connection-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+
+.connection-status-display {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.connection-status-text {
+  font-weight: 600;
+  margin-right: 8px;
+}
+
+.connection-status-text.connected {
+  color: #4CAF50;
+}
+
+.connection-status-text.disconnected {
+  color: #f44336;
+}
+
+.connecting-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.connecting-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.help-text {
+  text-align: center;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* ریسپانسیو */
+@media (max-width: 480px) {
+  .friend-content {
+    padding: 16px;
+  }
+  
+  .mode-btn {
+    padding: 12px 8px;
+    font-size: 13px;
+  }
+  
+  .section-title {
+    font-size: 20px;
+  }
+  
+  .form-input {
+    padding: 14px;
+  }
+  
+  .btn {
+    padding: 14px 20px;
+  }
+  
+  .game-info-card,
+  .join-method,
+  .invite-method,
+  .help-section,
+  .invite-tips {
+    padding: 20px;
+  }
+}

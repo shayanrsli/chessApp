@@ -6,7 +6,7 @@ interface HeaderProps {
   onBack: () => void;
 }
 
-export function Header({ title, subtitle, onBack }: HeaderProps) {
+export function Header({ title, subtitle }: HeaderProps) {
   return (
     <header className="header">
       <div className="header-top">

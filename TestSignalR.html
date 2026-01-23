@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>تست نهایی SignalR</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.1/signalr.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+        button {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+            min-width: 150px;
+        }
+        button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        button.primary {
+            background: linear-gradient(135deg, #FF416C 0%, #FF4B2B 100%);
+            border-color: transparent;
+        }
+        button.success {
+            background: linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%);
+            border-color: transparent;
+        }
+        .log-container {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            min-height: 300px;
+            max-height: 500px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 8px;
+            border-radius: 5px;
+            border-right: 3px solid transparent;
+        }
+        .log-info {
+            background: rgba(33, 150, 243, 0.2);
+            border-right-color: #2196F3;
+        }
+        .log-success {
+            background: rgba(76, 175, 80, 0.2);
+            border-right-color: #4CAF50;
+        }
+        .log-error {
+            background: rgba(244, 67, 54, 0.2);
+            border-right-color: #F44336;
+        }
+        .log-warning {
+            background: rgba(255, 193, 7, 0.2);
+            border-right-color: #FFC107;
+        }
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        .status-dot.connected {
+            background: #4CAF50;
+            box-shadow: 0 0 10px #4CAF50;
+        }
+        .status-dot.disconnected {
+            background: #F44336;
+            box-shadow: 0 0 10px #F44336;
+        }
+        .status-dot.connecting {
+            background: #FFC107;
+            box-shadow: 0 0 10px #FFC107;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 تست نهایی اتصال SignalR</h1>
+        
+        <div class="status-bar">
+            <div class="status-indicator">
+                <div id="statusDot" class="status-dot disconnected"></div>
+                <span id="statusText">قطع</span>
+            </div>
+            <div id="connectionInfo">شناسه: -</div>
+        </div>
+        
+        <div class="btn-group">
+            <button class="primary" onclick="testHttp()">۱. تست HTTP سرور</button>
+            <button class="primary" onclick="testNegotiate()">۲. تست Negotiate</button>
+            <button class="success" onclick="connectSignalR()">۳. اتصال SignalR</button>
+            <button onclick="testPing()">۴. تست Ping</button>
+            <button onclick="testConnection()">۵. تست ارتباط</button>
+            <button class="success" onclick="testCreateGame()">۶. ایجاد بازی</button>
+            <button onclick="getPublicGames()">۷. لیست بازی‌ها</button>
+            <button onclick="clearLog()">🗑️ پاک کردن</button>
+        </div>
+        
+        <div class="log-container" id="log"></div>
+    </div>
+
+    <script>
+        let connection = null;
+        const logElement = document.getElementById('log');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const connectionInfo = document.getElementById('connectionInfo');
+        
+        function updateStatus(state, text) {
+            statusDot.className = 'status-dot ' + state;
+            statusText.textContent = text;
+        }
+        
+        function addLog(message, type = 'info') {
+            const time = new Date().toLocaleTimeString('fa-IR');
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${type}`;
+            logEntry.innerHTML = `<strong>[${time}]</strong> ${message}`;
+            logElement.appendChild(logEntry);
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        async function testHttp() {
+            try {
+                addLog('🔄 در حال تست HTTP سرور...', 'info');
+                const response = await fetch('http://localhost:5131/test');
+                const text = await response.text();
+                addLog(`✅ HTTP سرور پاسخ داد: ${text}`, 'success');
+            } catch (error) {
+                addLog(`❌ HTTP خطا: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testNegotiate() {
+            try {
+                addLog('🔄 در حال تست Negotiate...', 'info');
+                const response = await fetch('http://localhost:5131/chessHub/negotiate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                addLog(`✅ Negotiate موفق`, 'success');
+                addLog(`📊 داده: ${JSON.stringify(data).substring(0, 200)}...`, 'info');
+            } catch (error) {
+                addLog(`❌ Negotiate خطا: ${error.message}`, 'error');
+            }
+        }
+        
+        async function connectSignalR() {
+            try {
+                updateStatus('connecting', 'در حال اتصال...');
+                addLog('🔄 در حال اتصال به SignalR...', 'info');
+                
+                connection = new signalR.HubConnectionBuilder()
+                    .withUrl('http://localhost:5131/chessHub', {
+                        skipNegotiation: false,
+                        transport: signalR.HttpTransportType.WebSockets | 
+                                   signalR.HttpTransportType.LongPolling
+                    })
+                    .withAutomaticReconnect([0, 2000, 5000, 10000])
+                    .configureLogging(signalR.LogLevel.Information)
+                    .build();
+                
+                // Event listeners
+                connection.on('Connected', (data) => {
+                    addLog(`📨 سرور: ${data.Message}`, 'success');
+                    connectionInfo.textContent = `شناسه: ${data.ConnectionId}`;
+                });
+                
+                connection.on('TestResponse', (data) => {
+                    addLog(`🧪 پاسخ تست: ${data}`, 'info');
+                });
+                
+                connection.on('GameCreated', (data) => {
+                    addLog(`🎮 بازی ایجاد شد: ${JSON.stringify(data)}`, 'success');
+                });
+                
+                connection.on('PlayerJoined', (data) => {
+                    addLog(`👤 بازیکن جدید: ${data.Player.Username}`, 'info');
+                });
+                
+                connection.onclose((error) => {
+                    updateStatus('disconnected', 'قطع');
+                    addLog(`🔌 اتصال قطع شد: ${error ? error.message : 'No error'}`, 'error');
+                });
+                
+                connection.onreconnecting((error) => {
+                    updateStatus('connecting', 'در حال اتصال مجدد...');
+                    addLog(`🔄 در حال اتصال مجدد... ${error ? error.message : ''}`, 'warning');
+                });
+                
+                connection.onreconnected((connectionId) => {
+                    updateStatus('connected', 'متصل');
+                    addLog(`✅ مجدداً متصل شد. شناسه: ${connectionId}`, 'success');
+                });
+                
+                await connection.start();
+                
+                updateStatus('connected', 'متصل');
+                addLog(`✅ با موفقیت متصل شد!`, 'success');
+                addLog(`📊 شناسه اتصال: ${connection.connectionId}`, 'info');
+                connectionInfo.textContent = `شناسه: ${connection.connectionId}`;
+                
+            } catch (error) {
+                updateStatus('disconnected', 'قطع');
+                addLog(`❌ خطا در اتصال: ${error.message}`, 'error');
+                console.error('Connection error:', error);
+            }
+        }
+        
+        async function testPing() {
+            if (!connection || connection.state !== 'Connected') {
+                addLog('❌ ابتدا به SignalR متصل شوید', 'error');
+                return;
+            }
+            
+            try {
+                addLog('🏓 در حال ارسال Ping...', 'info');
+                const result = await connection.invoke('Ping');
+                addLog(`✅ پاسخ Ping: ${result}`, 'success');
+            } catch (error) {
+                addLog(`❌ خطا در Ping: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testConnection() {
+            if (!connection || connection.state !== 'Connected') {
+                addLog('❌ ابتدا به SignalR متصل شوید', 'error');
+                return;
+            }
+            
+            try {
+                addLog('🧪 در حال تست ارتباط...', 'info');
+                const result = await connection.invoke('TestConnection', 'سلام سرور!');
+                addLog(`✅ تست موفق: ${JSON.stringify(result)}`, 'success');
+            } catch (error) {
+                addLog(`❌ خطا در تست: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testCreateGame() {
+            if (!connection || connection.state !== 'Connected') {
+                addLog('❌ ابتدا به SignalR متصل شوید', 'error');
+                return;
+            }
+            
+            try {
+                addLog('🎮 در حال ایجاد بازی تستی...', 'info');
+                const result = await connection.invoke('CreateGame', 'بازی تستی', false, 'تستر');
+                addLog(`✅ بازی ایجاد شد: ${JSON.stringify(result)}`, 'success');
+            } catch (error) {
+                addLog(`❌ خطا در ایجاد بازی: ${error.message}`, 'error');
+            }
+        }
+        
+        async function getPublicGames() {
+            if (!connection || connection.state !== 'Connected') {
+                addLog('❌ ابتدا به SignalR متصل شوید', 'error');
+                return;
+            }
+            
+            try {
+                addLog('📋 در حال دریافت لیست بازی‌ها...', 'info');
+                const result = await connection.invoke('GetPublicGames');
+                addLog(`✅ لیست بازی‌ها: ${JSON.stringify(result)}`, 'success');
+            } catch (error) {
+                addLog(`❌ خطا در دریافت لیست: ${error.message}`, 'error');
+            }
+        }
+        
+        function clearLog() {
+            logElement.innerHTML = '';
+            addLog('📝 لاگ پاک شد', 'info');
+        }
+        
+        // تست خودکار اولیه
+        setTimeout(() => {
+            testHttp();
+        }, 1000);
+    </script>
+</body>
+</html>

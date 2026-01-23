@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SignalR Simple Test</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.0/signalr.min.js"></script>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        button { margin: 5px; padding: 10px; }
+        .log { margin-top: 20px; padding: 10px; background: #f0f0f0; min-height: 200px; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>🔧 تست SignalR ساده</h1>
+    
+    <button onclick="testHttp()">تست HTTP</button>
+    <button onclick="connectSignalR()">اتصال SignalR</button>
+    <button onclick="testPing()">تست Ping</button>
+    
+    <div id="log" class="log"></div>
+
+    <script>
+        const log = document.getElementById('log');
+        let connection = null;
+        
+        function addLog(msg, type = 'info') {
+            const time = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.innerHTML = `[${time}] ${msg}`;
+            div.className = type;
+            log.appendChild(div);
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        async function testHttp() {
+            try {
+                addLog('در حال تست HTTP...');
+                const response = await fetch('http://localhost:5131/test');
+                const text = await response.text();
+                addLog(`✅ HTTP پاسخ: ${text}`, 'success');
+            } catch (error) {
+                addLog(`❌ HTTP خطا: ${error.message}`, 'error');
+            }
+        }
+        
+        async function connectSignalR() {
+            try {
+                addLog('در حال اتصال به SignalR...');
+                
+                connection = new signalR.HubConnectionBuilder()
+                    .withUrl('http://localhost:5131/chessHub')
+                    .withAutomaticReconnect()
+                    .configureLogging(signalR.LogLevel.Information)
+                    .build();
+                
+                connection.on('Connected', (data) => {
+                    addLog(`✅ متصل شد: ${JSON.stringify(data)}`, 'success');
+                });
+                
+                connection.onclose((error) => {
+                    addLog('🔌 اتصال قطع شد', 'error');
+                });
+                
+                await connection.start();
+                addLog('🚀 SignalR متصل شد!', 'success');
+                
+            } catch (error) {
+                addLog(`❌ خطا در اتصال: ${error.message}`, 'error');
+                console.error('Error details:', error);
+            }
+        }
+        
+        async function testPing() {
+            if (!connection) {
+                addLog('❌ اول به SignalR متصل شوید', 'error');
+                return;
+            }
+            
+            try {
+                addLog('در حال ارسال Ping...');
+                const result = await connection.invoke('Ping');
+                addLog(`✅ Ping پاسخ: ${result}`, 'success');
+            } catch (error) {
+                addLog(`❌ Ping خطا: ${error.message}`, 'error');
+            }
+        }
+        
+        // تست خودکار
+        setTimeout(() => {
+            testHttp();
+        }, 1000);
+    </script>
+</body>
+</html>

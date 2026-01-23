@@ -1,10 +1,10 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import App from './app/App'
-
+// main.tsx یا index.tsx
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom'; // ✅ اضافه کنید
+import App from './app/App';
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
+  <BrowserRouter> {/* ✅ App را داخل BrowserRouter بپیچید */}
     <App />
-  </StrictMode>,
-)
+  </BrowserRouter>
+);
