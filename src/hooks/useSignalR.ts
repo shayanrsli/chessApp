@@ -1,113 +1,88 @@
-import { useState, useEffect, useRef } from 'react';
-import * as signalR from '@microsoft/signalr';
+import { useEffect, useState } from "react";
+import * as signalR from "@microsoft/signalr";
 
-const HUB_URL = 'http://localhost:5131/chessHub';
+const HUB_URL = "http://localhost:5131/chessHub";
 
-// 🔥 Global connection - برای اینکه وقتی صفحه عوض می‌شود connection قطع نشود
+// global connection
 let globalConnection: signalR.HubConnection | null = null;
 
 export function useSignalR() {
+  const [connection, setConnection] = useState<signalR.HubConnection | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [error, setError] = useState<string>('');
-  const connectionRef = useRef<signalR.HubConnection | null>(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    console.log('🎯 useSignalR hook mounted');
+    let stopped = false;
 
-    // اگر connection جهانی وجود دارد، از آن استفاده کن
-    if (globalConnection && globalConnection.state === signalR.HubConnectionState.Connected) {
-      console.log('✅ Using existing global connection');
-      connectionRef.current = globalConnection;
-      setIsConnected(true);
-      return;
-    }
-
-    const startConnection = async () => {
+    const start = async () => {
+      if (stopped) return;
       if (isConnecting) return;
+
+      // reuse
+      if (globalConnection) {
+        setConnection(globalConnection);
+        setIsConnected(globalConnection.state === signalR.HubConnectionState.Connected);
+        if (globalConnection.state === signalR.HubConnectionState.Connected) return;
+      }
 
       try {
         setIsConnecting(true);
-        setError('');
+        setError("");
 
-        console.log('🚀 Creating new SignalR connection...');
-        
-        const hubConnection = new signalR.HubConnectionBuilder()
-          .withUrl(HUB_URL)
+        const hub = new signalR.HubConnectionBuilder()
+          .withUrl(HUB_URL, {
+            withCredentials: true
+          })
           .withAutomaticReconnect([0, 2000, 5000, 10000])
-          .configureLogging(signalR.LogLevel.Warning)
+          .configureLogging(signalR.LogLevel.Information)
           .build();
 
-        hubConnection.on('Connected', (data: any) => {
-          console.log('✅ Connected to server:', data);
+        hub.on("Connected", (data: any) => {
           setIsConnected(true);
-          setError('');
+          setError("");
+          // eslint-disable-next-line no-console
+          console.log("✅ Connected event:", data);
         });
 
-        hubConnection.onclose((err) => {
-          console.log('🔌 Connection closed:', err);
+        hub.onclose((err) => {
           setIsConnected(false);
-          if (err) {
-            setError(`Connection error: ${err.message}`);
-          }
-          // تلاش مجدد
-          setTimeout(() => startConnection(), 3000);
+          if (err) setError(err.message || "Connection closed");
         });
 
-        hubConnection.onreconnecting((err) => {
-          console.log('🔄 Reconnecting...', err);
+        hub.onreconnecting(() => {
           setIsConnected(false);
         });
 
-        hubConnection.onreconnected((connectionId) => {
-          console.log('✅ Reconnected:', connectionId);
+        hub.onreconnected(() => {
           setIsConnected(true);
         });
 
-        await hubConnection.start();
-        
-        console.log('✅ SignalR connected successfully!');
-        console.log('📊 Connection ID:', hubConnection.connectionId);
-        
-        connectionRef.current = hubConnection;
-        globalConnection = hubConnection; // ذخیره به صورت global
+        await hub.start();
+
+        globalConnection = hub;
+        setConnection(hub);
         setIsConnected(true);
-        setIsConnecting(false);
-
-      } catch (err: any) {
-        console.error('❌ Failed to connect:', err);
-        setError(`Connection failed: ${err.message}`);
+      } catch (e: any) {
+        setError(e?.message || "Connection failed");
         setIsConnected(false);
+        // retry
+        setTimeout(() => {
+          if (!stopped) start();
+        }, 3000);
+      } finally {
         setIsConnecting(false);
-        
-        // تلاش مجدد بعد از 5 ثانیه
-        setTimeout(() => startConnection(), 5000);
       }
     };
 
-    startConnection();
+    start();
 
-    // تمیزکاری
     return () => {
-      console.log('🧹 useSignalR cleanup - NOT destroying connection (keeping it global)');
-      // ❌ connection رو destroy نکن چون global است
+      stopped = true;
+      // intentionally keep globalConnection alive
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return {
-    connection: connectionRef.current,
-    isConnected,
-    isConnecting,
-    error
-  };
+  return { connection, isConnected, isConnecting, error };
 }
-
-function getPlayerId() {
-  let id = localStorage.getItem("playerId");
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem("playerId", id);
-  }
-  return id;
-}
-export default getPlayerId;

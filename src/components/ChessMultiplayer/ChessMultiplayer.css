@@ -856,3 +856,35 @@
   margin-top: 10px;
   display: inline-block;
 }
+
+
+.chess-board-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 12px;
+}
+
+/* ✅ اگر height/width نداشته باشه، مهره‌ها هیچوقت دیده نمی‌شن */
+.multiplayer-board {
+  width: min(92vw, 420px);
+  height: min(92vw, 420px);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* chessground داخلش cg-wrap می‌سازه */
+.multiplayer-board .cg-wrap {
+  width: 100%;
+  height: 100%;
+}
+
+.multiplayer-board-placeholder {
+  width: min(92vw, 420px);
+  height: min(92vw, 420px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+}
