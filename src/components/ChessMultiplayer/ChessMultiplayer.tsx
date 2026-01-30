@@ -72,18 +72,14 @@ export function ChessMultiplayer({ roomId, onBack, onNewGame }: ChessMultiplayer
     return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
   }, []);
 
-  // ✅ همیشه یک fen واقعی برای UI داشته باشیم
   const effectiveFen = useMemo(() => {
     return fen === "start" ? gameRef.current.fen() : fen;
   }, [fen]);
 
-  // ✅ مهم: sync کردن chess.js با fen فعلی
   const ensureGameSynced = useCallback((targetFen: string) => {
     const g = gameRef.current;
-
     if (!targetFen) return;
 
-    // فقط اگر واقعاً فرق داشت load کن (Performance)
     if (g.fen() !== targetFen) {
       try {
         g.load(targetFen);
@@ -93,7 +89,6 @@ export function ChessMultiplayer({ roomId, onBack, onNewGame }: ChessMultiplayer
     }
   }, []);
 
-  // ✅ نوبت را از effectiveFen بگیر (نه از fen که ممکنه "start" باشه)
   const activeSide = useMemo<Color>(() => {
     if (!effectiveFen) return "white";
     return fenToTurnColor(effectiveFen);
@@ -128,22 +123,6 @@ export function ChessMultiplayer({ roomId, onBack, onNewGame }: ChessMultiplayer
     return calculateDests();
   }, [calculateDests, isMyTurn]);
 
-  // ✅ Debug (همون چیزی که لازم داری)
-  useEffect(() => {
-    if (!playerColor) return;
-
-    ensureGameSynced(effectiveFen);
-
-    console.log("🧪 DEBUG =>", {
-      playerColor,
-      fen: effectiveFen,
-      activeSide,
-      chessTurn: gameRef.current.turn(),
-      isMyTurn,
-      destsKeys: dests.size
-    });
-  }, [playerColor, effectiveFen, activeSide, isMyTurn, dests, ensureGameSynced]);
-
   const handleMove = useCallback(
     async (from: Key, to: Key) => {
       if (!connection || !roomId || gameStatus !== "playing") return;
@@ -169,7 +148,6 @@ export function ChessMultiplayer({ roomId, onBack, onNewGame }: ChessMultiplayer
         return;
       }
 
-      // optimistic UI
       setLastMove([from, to]);
       setFen(afterFen);
 
@@ -197,7 +175,6 @@ export function ChessMultiplayer({ roomId, onBack, onNewGame }: ChessMultiplayer
     }
   }, [connection, roomId, newMessage, showMessage]);
 
-  // ✅ Events + EnsureJoined
   useEffect(() => {
     if (!connection || !isConnected || !roomId) return;
 
@@ -207,7 +184,7 @@ export function ChessMultiplayer({ roomId, onBack, onNewGame }: ChessMultiplayer
       if (!p) return null;
       return {
         username: p.username ?? p.Username,
-        userId: p.userId ?? p.UserId
+        userId: p.userId ?? p.UserId,
       };
     };
 
@@ -300,7 +277,6 @@ export function ChessMultiplayer({ roomId, onBack, onNewGame }: ChessMultiplayer
     };
   }, [connection, isConnected, roomId, playerId, playerName, showMessage]);
 
-  // ✅ Timer strictly follows activeSide
   useEffect(() => {
     if (gameStatus !== "playing") return;
     if (!playerColor) return;
@@ -330,142 +306,213 @@ export function ChessMultiplayer({ roomId, onBack, onNewGame }: ChessMultiplayer
 
   if (isLoading) {
     return (
-      <div className="multiplayer-loading">
-        <div className="loading-spinner"></div>
-        <p>🎮 در حال اتصال...</p>
-        <p>🔗 اتاق: {roomId}</p>
-        <button className="back-btn" onClick={onBack} style={{ marginTop: 20 }}>
-          ← بازگشت
-        </button>
+      <div className="cm" dir="rtl">
+        <header className="cm__header">
+          <button className="cm__iconBtn" onClick={onBack} type="button" aria-label="بازگشت">
+            <span aria-hidden="true">←</span>
+            <span className="cm__iconBtnText">بازگشت</span>
+          </button>
+          <div className="cm__titleWrap">
+            <h1 className="cm__title">اتصال به بازی</h1>
+            <p className="cm__subtitle">لطفاً چند لحظه صبر کن…</p>
+          </div>
+          <div className="cm__statusPill" aria-live="polite">
+            <span className={`cm__dot ${isConnected ? "is-online" : "is-offline"}`} aria-hidden="true" />
+            {isConnected ? "آنلاین" : "آفلاین"}
+          </div>
+        </header>
+
+        <main className="cm__loadingCard" aria-label="در حال اتصال">
+          <div className="cm__spinner" aria-hidden="true" />
+          <div className="cm__loadingText">🎮 در حال اتصال…</div>
+          <div className="cm__roomCode">
+            <span>اتاق:</span>
+            <code className="cm__mono" title={roomId}>
+              {roomId}
+            </code>
+          </div>
+          <button className="cm__btn cm__btn--ghost" onClick={onBack} type="button">
+            ← بازگشت
+          </button>
+        </main>
       </div>
     );
   }
 
   return (
-    <div className="chess-multiplayer" dir="rtl">
-      <header className="multiplayer-header">
-        <button className="back-btn" onClick={onBack}>
-          ← خانه
+    <div className="cm" dir="rtl">
+      <header className="cm__header">
+        <button className="cm__iconBtn" onClick={onBack} type="button" aria-label="خانه">
+          <span aria-hidden="true">←</span>
+          <span className="cm__iconBtnText">خانه</span>
         </button>
 
-        <div className="game-info">
-          <div className="room-info">
-            🎮 بازی شطرنج
-            <span className="room-id">شناسه: {roomId.slice(0, 8)}...</span>
+        <div className="cm__titleWrap">
+          <h1 className="cm__title">بازی شطرنج</h1>
+          <div className="cm__metaRow">
+            <span className="cm__metaChip">
+              شناسه:
+              <code className="cm__mono" title={roomId}>
+                {roomId.slice(0, 8)}…
+              </code>
+            </span>
+
+            <span className={`cm__badge cm__badge--${gameStatus}`}>
+              {gameStatus === "waiting" && "⏳ منتظر حریف"}
+              {gameStatus === "playing" && `🎮 در حال بازی | نوبت: ${activeSide === "white" ? "سفید" : "مشکی"}`}
+              {gameStatus === "finished" && "🏁 پایان"}
+            </span>
           </div>
-          <div className={`game-status ${gameStatus}`}>
-            {gameStatus === "waiting" && "⏳ منتظر حریف"}
-            {gameStatus === "playing" && `🎮 در حال بازی | نوبت: ${activeSide === "white" ? "سفید" : "مشکی"}`}
-            {gameStatus === "finished" && "🏁 پایان"}
-          </div>
+        </div>
+
+        <div className="cm__statusPill" aria-live="polite" aria-label="وضعیت اتصال">
+          <span className={`cm__dot ${isConnected ? "is-online" : "is-offline"}`} aria-hidden="true" />
+          {isConnected ? "آنلاین" : "آفلاین"}
         </div>
       </header>
 
-      <div className="players-info">
-        <div className={`player-card ${playerColor === "white" ? "me" : "opponent"}`}>
-          <div className="player-color white">⚪</div>
-          <div className="player-details">
-            <h3>{playerColor === "white" ? playerName : opponentName}</h3>
-            <p>سفید</p>
+      <main className="cm__content">
+        <section className="cm__players" aria-label="اطلاعات بازیکنان">
+          <div className={`cm__player ${playerColor === "white" ? "is-me" : ""}`}>
+            <div className="cm__piece" aria-hidden="true">
+              ⚪
+            </div>
+            <div className="cm__playerInfo">
+              <div className="cm__playerName">{playerColor === "white" ? playerName : opponentName}</div>
+              <div className="cm__playerSub">سفید</div>
+            </div>
+            <div
+              className={`cm__timer ${
+                activeSide === "white" && playerColor === "white" && gameStatus === "playing" ? "is-active" : ""
+              } ${playerColor === "white" ? (myTime <= 30 ? "is-critical" : "") : opponentTime <= 30 ? "is-critical" : ""}`}
+              aria-label="زمان سفید"
+            >
+              {formatTime(playerColor === "white" ? myTime : opponentTime)}
+            </div>
           </div>
-          <div className={`player-timer ${activeSide === "white" && playerColor === "white" ? "active" : ""}`}>
-            {formatTime(playerColor === "white" ? myTime : opponentTime)}
+
+          <div className="cm__vs" aria-hidden="true">
+            🎮
           </div>
-        </div>
 
-        <div className="vs-indicator">🎮</div>
-
-        <div className={`player-card ${playerColor === "black" ? "me" : "opponent"}`}>
-          <div className="player-color black">⚫</div>
-          <div className="player-details">
-            <h3>{playerColor === "black" ? playerName : opponentName}</h3>
-            <p>سیاه</p>
+          <div className={`cm__player ${playerColor === "black" ? "is-me" : ""}`}>
+            <div className="cm__piece" aria-hidden="true">
+              ⚫
+            </div>
+            <div className="cm__playerInfo">
+              <div className="cm__playerName">{playerColor === "black" ? playerName : opponentName}</div>
+              <div className="cm__playerSub">سیاه</div>
+            </div>
+            <div
+              className={`cm__timer ${
+                activeSide === "black" && playerColor === "black" && gameStatus === "playing" ? "is-active" : ""
+              } ${playerColor === "black" ? (myTime <= 30 ? "is-critical" : "") : opponentTime <= 30 ? "is-critical" : ""}`}
+              aria-label="زمان سیاه"
+            >
+              {formatTime(playerColor === "black" ? myTime : opponentTime)}
+            </div>
           </div>
-          <div className={`player-timer ${activeSide === "black" && playerColor === "black" ? "active" : ""}`}>
-            {formatTime(playerColor === "black" ? myTime : opponentTime)}
+        </section>
+
+        <section className="cm__boardCard" aria-label="صفحه شطرنج">
+          <div className="cm__boardWrap">
+            {playerColor ? (
+              <ChessBoardView
+                className="cm__board"
+                fen={effectiveFen}
+                orientation={playerColor}
+                turnColor={activeSide}
+                movableColor={isMyTurn ? playerColor : null}
+                dests={dests}
+                onMove={handleMove}
+                lastMove={lastMove}
+                viewOnly={gameStatus !== "playing"}
+              />
+            ) : (
+              <div className="cm__boardPlaceholder">در حال تنظیم بورد…</div>
+            )}
           </div>
-        </div>
-      </div>
 
-      {/* ✅ Board */}
-      <div className="chess-board-container">
-        {playerColor ? (
-          <ChessBoardView
-            className="multiplayer-board"
-            fen={effectiveFen}
-            orientation={playerColor}
-            turnColor={activeSide} // ✅ تغییر اصلی
-            movableColor={isMyTurn ? playerColor : null}
-            dests={dests}
-            onMove={handleMove}
-            lastMove={lastMove}
-            viewOnly={gameStatus !== "playing"}
-          />
-        ) : (
-          <div className="multiplayer-board-placeholder">در حال تنظیم بورد...</div>
-        )}
-      </div>
+          <div className="cm__statusBar" aria-label="وضعیت بازی">
+            <div className="cm__statusItem">
+              <span className="cm__statusLabel">نوبت</span>
+              <strong className="cm__statusValue">{isMyTurn ? "شما" : opponentName}</strong>
+            </div>
+            <div className="cm__divider" aria-hidden="true" />
+            <div className="cm__statusItem">
+              <span className="cm__statusLabel">حرکت</span>
+              <strong className="cm__statusValue">{moveCount}</strong>
+            </div>
+          </div>
+        </section>
 
-      <div className="game-status-bar">
-        <div className="status-item">
-          <span>نوبت:</span>
-          <strong>{isMyTurn ? "شما" : opponentName}</strong>
-        </div>
-        <div className="status-item">
-          <span>حرکت:</span>
-          <strong>{moveCount}</strong>
-        </div>
-      </div>
+        <section className="cm__chatCard" aria-label="چت بازی">
+          <div className="cm__chatHeader">
+            <h2 className="cm__chatTitle">💬 چت بازی</h2>
+            <div className="cm__chatHint">پیام‌ها فقط داخل همین بازی هستند</div>
+          </div>
 
-      <div className="game-chat">
-        <h4>💬 چت بازی</h4>
-        <div className="chat-messages">
-          {chatMessages.length === 0 ? (
-            <div className="no-messages">هیچ پیامی ارسال نشده</div>
-          ) : (
-            chatMessages.map((msg, i) => (
-              <div key={i} className={`message ${msg.sender === playerName ? "my-message" : "opponent-message"}`}>
-                <div className="message-sender">{msg.sender}</div>
-                <div className="message-text">{msg.text}</div>
-                <div className="message-time">{msg.time}</div>
-              </div>
-            ))
-          )}
-        </div>
+          <div className="cm__chatMessages" role="log" aria-live="polite">
+            {chatMessages.length === 0 ? (
+              <div className="cm__empty">هیچ پیامی ارسال نشده</div>
+            ) : (
+              chatMessages.map((msg, i) => {
+                const mine = msg.sender === playerName;
+                return (
+                  <div key={i} className={`cm__msg ${mine ? "is-mine" : "is-theirs"}`}>
+                    <div className="cm__msgMeta">
+                      <span className="cm__msgSender">{mine ? "شما" : msg.sender}</span>
+                      <span className="cm__msgTime">{msg.time}</span>
+                    </div>
+                    <div className="cm__msgBubble">{msg.text}</div>
+                  </div>
+                );
+              })
+            )}
+          </div>
 
-        <div className="chat-input">
-          <input
-            type="text"
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="پیام..."
-            onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
-          />
-          <button onClick={handleSendMessage}>📤</button>
-        </div>
-      </div>
+          <div className="cm__chatInputRow">
+            <input
+              className="cm__chatInput"
+              type="text"
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              placeholder="پیام…"
+              onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
+              disabled={!isConnected}
+              aria-label="متن پیام"
+            />
+            <button className="cm__sendBtn" onClick={handleSendMessage} type="button" disabled={!isConnected || !newMessage.trim()}>
+              📤
+            </button>
+          </div>
+        </section>
+      </main>
 
       {message && (
-        <div className="message-toast">
-          <div className="message-content">{message}</div>
-          <button onClick={() => setMessage("")}>✕</button>
+        <div className="cm__toast" role="status" aria-live="polite">
+          <div className="cm__toastText">{message}</div>
+          <button className="cm__toastClose" onClick={() => setMessage("")} type="button" aria-label="بستن">
+            ✕
+          </button>
         </div>
       )}
 
       {gameStatus === "finished" && (
-        <div className="game-result-overlay">
-          <div className="result-content">
-            <h2>🎮 بازی پایان یافت</h2>
-            <p className="result-text">
+        <div className="cm__overlay" role="dialog" aria-modal="true" aria-label="نتیجه بازی">
+          <div className="cm__resultCard">
+            <h2 className="cm__resultTitle">🎮 بازی پایان یافت</h2>
+            <p className="cm__resultText">
               {winner === "draw" ? "مساوی!" : winner === playerColor ? "شما بردید 🎉" : `${opponentName} برد`}
             </p>
-            <div className="result-actions">
+
+            <div className="cm__resultActions">
               {onNewGame && (
-                <button className="result-btn new-game" onClick={onNewGame}>
+                <button className="cm__btn cm__btn--primary" onClick={onNewGame} type="button">
                   🆕 بازی جدید
                 </button>
               )}
-              <button className="result-btn home" onClick={onBack}>
+              <button className="cm__btn cm__btn--ghost" onClick={onBack} type="button">
                 🏠 خانه
               </button>
             </div>
