@@ -418,7 +418,7 @@ export function ChessMultiplayer({ roomId, onBack, onNewGame }: ChessMultiplayer
           <div className="cm__boardWrap">
             {playerColor ? (
               <ChessBoardView
-                className="cm__board"
+                className="cm__board multiplayer-board"
                 fen={effectiveFen}
                 orientation={playerColor}
                 turnColor={activeSide}
